@@ -1,0 +1,17 @@
+[package]
+name = "json_bench"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[[bench]]
+name = "json_parse"
+harness = false
+
+[dependencies]
+nanachi.workspace = true
+nanachi_derive.workspace = true
+pest = "2.8"
+pest_derive = "2.8"
+serde_json = "1"
+criterion = "0.8.2"

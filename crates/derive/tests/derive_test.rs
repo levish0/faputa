@@ -8,13 +8,12 @@ struct AlphaParser;
 
 #[test]
 fn inline_grammar_parses() {
-    // AlphaParser -> module alpha_parser
-    assert_eq!(alpha_parser::parse_alpha("x").unwrap(), "x");
+    assert_eq!(AlphaParser::parse_alpha("x").unwrap(), "x");
 }
 
 #[test]
 fn inline_grammar_rejects() {
-    alpha_parser::parse_alpha("1").unwrap_err();
+    AlphaParser::parse_alpha("1").unwrap_err();
 }
 
 // ── #[grammar] with file path ──
@@ -25,17 +24,17 @@ struct SimpleParser;
 
 #[test]
 fn file_grammar_ident() {
-    assert_eq!(simple_parser::parse_ident("hello123").unwrap(), "hello123");
+    assert_eq!(SimpleParser::parse_ident("hello123").unwrap(), "hello123");
 }
 
 #[test]
 fn file_grammar_alpha() {
-    assert_eq!(simple_parser::parse_alpha("Z").unwrap(), "Z");
+    assert_eq!(SimpleParser::parse_alpha("Z").unwrap(), "Z");
 }
 
 #[test]
 fn file_grammar_rejects_digit_start() {
-    simple_parser::parse_ident("123").unwrap_err();
+    SimpleParser::parse_ident("123").unwrap_err();
 }
 
 // ── Stateful grammar ──
@@ -46,10 +45,10 @@ struct BoldParser;
 
 #[test]
 fn bold_parses() {
-    assert_eq!(bold_parser::parse_bold("**x**").unwrap(), "**x**");
+    assert_eq!(BoldParser::parse_bold("**x**").unwrap(), "**x**");
 }
 
 #[test]
 fn bold_rejects_empty() {
-    bold_parser::parse_bold("").unwrap_err();
+    BoldParser::parse_bold("").unwrap_err();
 }

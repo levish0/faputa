@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*", "xtask", "fuzz", "tests/e2e"]
+members = ["crates/*", "xtask", "fuzz", "tests/e2e", "examples/parse_demo", "examples/parse_json", "benches/json_bench"]
 resolver = "3"
 
 [workspace.package]

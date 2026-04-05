@@ -7,33 +7,44 @@ use nanachi_meta::ast::{Grammar, Item};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-/// Generate Rust + winnow parser code from a validated nanachi grammar.
-///
-/// Uses `__nanachi` as the module name. See [`generate_with_mod`] for custom module names.
-pub fn generate(grammar: &Grammar) -> TokenStream {
-    generate_with_mod(grammar, &format_ident!("__nanachi"))
-}
-
-/// Generate Rust + winnow parser code with a custom module name.
-pub fn generate_with_mod(grammar: &Grammar, mod_name: &proc_macro2::Ident) -> TokenStream {
+fn generate_module_inner(grammar: &Grammar) -> TokenStream {
     let state_code = state::generate_state(grammar);
     let rules_code = rules::generate_rules(grammar);
     let entry_code = generate_entry(grammar);
 
     quote::quote! {
+        use nanachi::winnow;
+        use nanachi::winnow::prelude::*;
+        use nanachi::winnow::combinator::*;
+        use nanachi::winnow::token::*;
+        use nanachi::winnow::stream::Location;
+        use nanachi::{Input, State};
+
+        #state_code
+        #rules_code
+        #entry_code
+    }
+}
+
+/// Generate parser code as `pub mod __nanachi { ... }` (for build.rs).
+pub fn generate(grammar: &Grammar) -> TokenStream {
+    let inner = generate_module_inner(grammar);
+    quote::quote! {
+        #[allow(dead_code, unused_imports, unused_variables)]
+        pub mod __nanachi {
+            #inner
+        }
+    }
+}
+
+/// Generate parser code as `#[doc(hidden)] mod <name> { ... }` (for derive).
+pub fn generate_with_mod(grammar: &Grammar, mod_name: &proc_macro2::Ident) -> TokenStream {
+    let inner = generate_module_inner(grammar);
+    quote::quote! {
         #[doc(hidden)]
         #[allow(dead_code, unused_imports, unused_variables)]
         mod #mod_name {
-            use nanachi::winnow;
-            use nanachi::winnow::prelude::*;
-            use nanachi::winnow::combinator::*;
-            use nanachi::winnow::token::*;
-            use nanachi::winnow::stream::Location;
-            use nanachi::{Input, State};
-
-            #state_code
-            #rules_code
-            #entry_code
+            #inner
         }
     }
 }

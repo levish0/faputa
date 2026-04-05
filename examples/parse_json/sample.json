@@ -1,0 +1,11 @@
+{
+  "name": "nanachi",
+  "version": "0.1.0",
+  "keywords": ["parser", "stateful", "codegen"],
+  "config": {
+    "debug": false,
+    "max_depth": 100,
+    "description": null
+  },
+  "scores": [1, 2.5, -3, 1e10]
+}

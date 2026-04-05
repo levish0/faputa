@@ -1,0 +1,7 @@
+// Simple expression-like grammar: identifiers, numbers, and assignments.
+
+alpha  = { 'a'..'z' | 'A'..'Z' | "_" }
+digit  = { '0'..'9' }
+ident  = { alpha (alpha | digit)* }
+number = { digit+ }
+assign = { ident "=" (number | ident) }
