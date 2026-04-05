@@ -1,6 +1,9 @@
 /// Parse a .nanachi file and print its AST.
 ///
-/// Usage: cargo run -p nanachi_meta --example parse -- <file.nanachi>
+/// ```sh
+/// cargo run -p nanachi_meta --example parse -- examples/simple.nanachi
+/// cargo run -p nanachi_meta --example parse -- examples/markdown_bold.nanachi
+/// ```
 
 fn main() {
     let path = std::env::args().nth(1).unwrap_or_else(|| {

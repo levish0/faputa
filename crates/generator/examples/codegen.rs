@@ -1,6 +1,9 @@
 /// Generate winnow parser code from a .nanachi file.
 ///
-/// Usage: cargo run -p nanachi_generator --example codegen -- <file.nanachi>
+/// ```sh
+/// cargo run -p nanachi_generator --example codegen -- examples/simple.nanachi
+/// cargo run -p nanachi_generator --example codegen -- examples/markdown_bold.nanachi
+/// ```
 
 fn main() {
     let path = std::env::args().nth(1).unwrap_or_else(|| {
