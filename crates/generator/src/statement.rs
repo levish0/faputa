@@ -64,7 +64,7 @@ fn generate_builtin_guard(builtin: &BuiltinPredicate) -> TokenStream {
     match builtin {
         BuiltinPredicate::Soi => {
             quote! {
-                if input.location() != 0 {
+                if input.input.location() != 0 {
                     return Err(winnow::error::ErrMode::Backtrack(
                         winnow::error::ContextError::new(),
                     ));
@@ -74,7 +74,7 @@ fn generate_builtin_guard(builtin: &BuiltinPredicate) -> TokenStream {
         BuiltinPredicate::LineStart => {
             quote! {
                 {
-                    let pos = input.location();
+                    let pos = input.input.location();
                     if !input.state.is_at_line_start(pos) {
                         return Err(winnow::error::ErrMode::Backtrack(
                             winnow::error::ContextError::new(),
@@ -96,7 +96,7 @@ fn generate_builtin_guard(builtin: &BuiltinPredicate) -> TokenStream {
         BuiltinPredicate::LineEnd => {
             quote! {
                 {
-                    let pos = input.location();
+                    let pos = input.input.location();
                     if !input.state.is_at_line_end(pos) {
                         return Err(winnow::error::ErrMode::Backtrack(
                             winnow::error::ContextError::new(),

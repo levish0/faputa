@@ -15,6 +15,7 @@ pub fn generate(grammar: &Grammar) -> TokenStream {
 
     quote::quote! {
         mod __nanachi {
+            use nanachi::winnow;
             use nanachi::winnow::prelude::*;
             use nanachi::winnow::combinator::*;
             use nanachi::winnow::token::*;
@@ -52,7 +53,7 @@ fn generate_entry(grammar: &Grammar) -> TokenStream {
             if !input.input.is_empty() {
                 return Err(format!(
                     "unexpected trailing input at position {}",
-                    input.location()
+                    input.input.location()
                 ));
             }
             Ok(())

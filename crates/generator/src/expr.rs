@@ -57,7 +57,7 @@ fn generate_builtin_expr(builtin: &BuiltinPredicate) -> TokenStream {
             // SOI as expression: succeed if at position 0
             quote! {
                 winnow::combinator::trace("SOI", |input: &mut Input<'_, ParseState>| {
-                    if input.location() == 0 {
+                    if input.input.location() == 0 {
                         Ok(())
                     } else {
                         Err(winnow::error::ErrMode::Backtrack(
@@ -68,15 +68,15 @@ fn generate_builtin_expr(builtin: &BuiltinPredicate) -> TokenStream {
             }
         }
         BuiltinPredicate::Eoi => {
-            quote! { eof }
+            quote! { eof.void() }
         }
         BuiltinPredicate::Any => {
-            quote! { any }
+            quote! { any.void() }
         }
         BuiltinPredicate::LineStart => {
             quote! {
                 winnow::combinator::trace("LINE_START", |input: &mut Input<'_, ParseState>| {
-                    let pos = input.location();
+                    let pos = input.input.location();
                     if input.state.is_at_line_start(pos) {
                         Ok(())
                     } else {
@@ -90,7 +90,7 @@ fn generate_builtin_expr(builtin: &BuiltinPredicate) -> TokenStream {
         BuiltinPredicate::LineEnd => {
             quote! {
                 winnow::combinator::trace("LINE_END", |input: &mut Input<'_, ParseState>| {
-                    let pos = input.location();
+                    let pos = input.input.location();
                     if input.state.is_at_line_end(pos) {
                         Ok(())
                     } else {
@@ -176,13 +176,13 @@ fn generate_condition_check(condition: &GuardCondition) -> TokenStream {
     match condition {
         GuardCondition::NotFlag(name) => quote! { !input.state.get_flag(#name) },
         GuardCondition::IsFlag(name) => quote! { input.state.get_flag(#name) },
-        GuardCondition::Builtin(BuiltinPredicate::Soi) => quote! { input.location() == 0 },
+        GuardCondition::Builtin(BuiltinPredicate::Soi) => quote! { input.input.location() == 0 },
         GuardCondition::Builtin(BuiltinPredicate::Eoi) => quote! { input.input.is_empty() },
         GuardCondition::Builtin(BuiltinPredicate::LineStart) => {
-            quote! { input.state.is_at_line_start(input.location()) }
+            quote! { input.state.is_at_line_start(input.input.location()) }
         }
         GuardCondition::Builtin(BuiltinPredicate::LineEnd) => {
-            quote! { input.state.is_at_line_end(input.location()) }
+            quote! { input.state.is_at_line_end(input.input.location()) }
         }
         GuardCondition::Builtin(BuiltinPredicate::Any) => quote! { true },
         GuardCondition::Compare { name, op, value } => {
