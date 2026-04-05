@@ -9,7 +9,7 @@ license = "Apache-2.0"
 repository = "https://github.com/levish0/nanachi"
 description = "A stateful parser generator"
 edition = "2024"
-rust-version = "1.85.0"
+rust-version = "1.93.0"
 keywords = ["parser", "grammar", "stateful", "codegen"]
 categories = ["parsing"]
 readme = "README.md"
@@ -25,6 +25,7 @@ nanachi_debugger = { path = "crates/debugger", version = "0.1.0" }
 
 # External dependencies
 winnow = "1.0.1"
+logos = "0.16.1"
 proc-macro2 = "1.0.106"
 quote = "1.0.45"
 syn = "2.0.117"

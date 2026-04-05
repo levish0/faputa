@@ -10,4 +10,5 @@ rust-version.workspace = true
 
 [dependencies]
 nanachi.workspace = true
+logos.workspace = true
 winnow.workspace = true
