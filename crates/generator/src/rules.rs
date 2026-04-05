@@ -11,14 +11,14 @@ pub(crate) fn generate_rules(grammar: &Grammar) -> TokenStream {
         .items
         .iter()
         .filter_map(|item| match item {
-            Item::RuleDef(rule) => Some(quote! {
-                #{
-                    generate_rule(rule, false)
-                }
-                #{
-                    generate_rule(rule, true)
-                }
-            }),
+            Item::RuleDef(rule) => {
+                let basic = generate_rule(rule, false);
+                let detailed = generate_rule(rule, true);
+                Some(quote! {
+                    #basic
+                    #detailed
+                })
+            }
             _ => None,
         })
         .collect();

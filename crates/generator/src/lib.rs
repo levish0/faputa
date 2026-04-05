@@ -142,14 +142,3 @@ fn generate_entry(grammar: &Grammar) -> TokenStream {
 
     quote! { #(#entries)* }
 }
-                        }
-                        Ok(matched)
-                    }
-                })
-            }
-            _ => None,
-        })
-        .collect();
-
-    quote! { #(#entries)* }
-}
