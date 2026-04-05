@@ -114,7 +114,10 @@ fn nested_braces_document_accepts_empty() {
 
 #[test]
 fn nested_braces_block_parses_simple_block() {
-    assert_eq!(nested_braces::__nanachi::parse_block("{{{x}}}").unwrap(), "{{{x}}}");
+    assert_eq!(
+        nested_braces::__nanachi::parse_block("{{{x}}}").unwrap(),
+        "{{{x}}}"
+    );
 }
 
 #[test]
@@ -135,7 +138,10 @@ fn stateful_bold_parses_text() {
 
 #[test]
 fn stateful_bold_parses_bold() {
-    assert_eq!(stateful_bold::__nanachi::parse_bold("**x**").unwrap(), "**x**");
+    assert_eq!(
+        stateful_bold::__nanachi::parse_bold("**x**").unwrap(),
+        "**x**"
+    );
 }
 
 #[test]
@@ -151,12 +157,18 @@ mod nested_formatting {
 
 #[test]
 fn nested_formatting_parses_bold() {
-    assert_eq!(nested_formatting::__nanachi::parse_bold("**x**").unwrap(), "**x**");
+    assert_eq!(
+        nested_formatting::__nanachi::parse_bold("**x**").unwrap(),
+        "**x**"
+    );
 }
 
 #[test]
 fn nested_formatting_parses_header() {
-    assert_eq!(nested_formatting::__nanachi::parse_header("## x").unwrap(), "## x");
+    assert_eq!(
+        nested_formatting::__nanachi::parse_header("## x").unwrap(),
+        "## x"
+    );
 }
 
 #[test]
@@ -172,12 +184,18 @@ mod depth_and_braces {
 
 #[test]
 fn depth_and_braces_parses_raw_block() {
-    assert_eq!(depth_and_braces::__nanachi::parse_raw_block("{{{x}}}").unwrap(), "{{{x}}}");
+    assert_eq!(
+        depth_and_braces::__nanachi::parse_raw_block("{{{x}}}").unwrap(),
+        "{{{x}}}"
+    );
 }
 
 #[test]
 fn depth_and_braces_parses_paragraph() {
-    assert_eq!(depth_and_braces::__nanachi::parse_paragraph("abc").unwrap(), "abc");
+    assert_eq!(
+        depth_and_braces::__nanachi::parse_paragraph("abc").unwrap(),
+        "abc"
+    );
 }
 
 #[test]
@@ -193,7 +211,10 @@ mod when_conditional {
 
 #[test]
 fn when_conditional_parses_plain_newline() {
-    assert_eq!(when_conditional::__nanachi::parse_newline("\n").unwrap(), "\n");
+    assert_eq!(
+        when_conditional::__nanachi::parse_newline("\n").unwrap(),
+        "\n"
+    );
 }
 
 #[test]
@@ -219,7 +240,10 @@ fn chaos_combo_tag_rejects_plain_angle_tag() {
 
 #[test]
 fn chaos_combo_parses_escaped_pair() {
-    assert_eq!(chaos_combo::__nanachi::parse_escaped("\\n\"").unwrap(), "\\n\"");
+    assert_eq!(
+        chaos_combo::__nanachi::parse_escaped("\\n\"").unwrap(),
+        "\\n\""
+    );
 }
 
 #[test]
@@ -229,5 +253,8 @@ fn chaos_combo_text_rejects_tag_start() {
 
 #[test]
 fn chaos_combo_document_parses_escaped_chunk() {
-    assert_eq!(chaos_combo::__nanachi::parse_document("\\n\"").unwrap(), "\\n\"");
+    assert_eq!(
+        chaos_combo::__nanachi::parse_document("\\n\"").unwrap(),
+        "\\n\""
+    );
 }

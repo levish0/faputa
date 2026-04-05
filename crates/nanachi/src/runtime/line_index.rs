@@ -63,4 +63,13 @@ mod tests {
         assert_eq!(idx.line_col(3), (1, 4));
         assert_eq!(idx.line_col(4), (2, 1));
     }
+
+    #[test]
+    fn unicode_columns_are_byte_based() {
+        let idx = LineIndex::new("a한\nz");
+
+        assert_eq!(idx.line_col(1), (1, 2));
+        assert_eq!(idx.line_col(4), (1, 5));
+        assert_eq!(idx.line_col(5), (2, 1));
+    }
 }

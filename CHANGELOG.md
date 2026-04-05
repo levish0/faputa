@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-04-06
+
+### Added
+
+- **Error messages** with accurate source positions
+  - `LineIndex` in runtime crate: memchr-accelerated newline index with O(log n) binary search for byte-offset → line:col conversion
+  - `StrContext::Label` on every rule for "invalid <rule>" messages
+  - `StrContext::Expected` on string literals and char ranges for "expected ..." messages
+  - `furthest_pos` tracking in `ParseState` to report the actual failure position after backtracking
+  - Errors now format as `parse error at 3:12: invalid value\nexpected "null", "true", "false"` instead of raw `ContextError { context: [], cause: None }`
+
+- **`memchr` dependency** added to nanachi runtime for SIMD-accelerated newline scanning
+
+### Fixed
+
+- Error position no longer reports `1:1` for all failures — uses furthest position reached during parsing
+
 ## [0.1.1] - 2026-04-06
 
 ### Added

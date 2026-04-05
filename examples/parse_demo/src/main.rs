@@ -52,6 +52,21 @@ mod tests {
     }
 
     #[test]
+    fn parse_error_reports_location() {
+        let err = Demo::parse_assign("1x=2").unwrap_err();
+
+        assert!(err.starts_with("parse error at 1:1:"));
+        assert!(err.contains("invalid alpha"));
+    }
+
+    #[test]
+    fn trailing_input_reports_location() {
+        let err = Demo::parse_ident("x!").unwrap_err();
+
+        assert_eq!(err, "unexpected trailing input at 1:2");
+    }
+
+    #[test]
     fn ident_and_number_rules_work() {
         assert_eq!(Demo::parse_ident("hello123").unwrap(), "hello123");
         assert_eq!(Demo::parse_number("42").unwrap(), "42");

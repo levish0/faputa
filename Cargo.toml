@@ -3,7 +3,7 @@ members = ["crates/*", "xtask", "fuzz", "tests/e2e", "examples/parse_demo", "exa
 resolver = "3"
 
 [workspace.package]
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Levi Laine <shiueo.csh@gmail.com>"]
 license = "Apache-2.0"
 repository = "https://github.com/levish0/nanachi"

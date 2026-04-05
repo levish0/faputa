@@ -27,15 +27,15 @@ fn bench_json(c: &mut Criterion) {
     let mut group = c.benchmark_group("json_parse");
 
     group.bench_function("nanachi", |b| {
-        b.iter(|| NanachiJson::parse_json(criterion::black_box(&data)).unwrap())
+        b.iter(|| NanachiJson::parse_json(std::hint::black_box(&data)).unwrap())
     });
 
     group.bench_function("pest", |b| {
-        b.iter(|| PestJson::parse(Rule::json, criterion::black_box(&data)).unwrap())
+        b.iter(|| PestJson::parse(Rule::json, std::hint::black_box(&data)).unwrap())
     });
 
     group.bench_function("serde_json", |b| {
-        b.iter(|| serde_json::from_str::<serde_json::Value>(criterion::black_box(&data)).unwrap())
+        b.iter(|| serde_json::from_str::<serde_json::Value>(std::hint::black_box(&data)).unwrap())
     });
 
     group.finish();
