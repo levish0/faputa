@@ -6,7 +6,7 @@ fn main() {
     let fixtures_dir = workspace_root.join("fixtures/valid");
     let examples_dir = workspace_root.join("examples");
 
-    let mut dirs = vec![
+    let dirs = vec![
         ("fixture", fixtures_dir.clone()),
         ("example", examples_dir.clone()),
     ];

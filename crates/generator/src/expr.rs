@@ -146,7 +146,7 @@ fn generate_with_flag(with_expr: &WithExpr) -> TokenStream {
         winnow::combinator::trace("with_flag", |input: &mut Input<'_, ParseState>| {
             let prev = input.state.get_flag(#name);
             input.state.set_flag(#name, true);
-            let result = (#body).parse_next(input);
+            let result = (#body).void().parse_next(input);
             input.state.set_flag(#name, prev);
             result
         })
@@ -160,7 +160,7 @@ fn generate_with_increment(with_inc: &WithIncrementExpr) -> TokenStream {
     quote! {
         winnow::combinator::trace("with_increment", |input: &mut Input<'_, ParseState>| {
             input.state.increment_counter(#name, #amount);
-            let result = (#body).parse_next(input);
+            let result = (#body).void().parse_next(input);
             input.state.decrement_counter(#name, #amount);
             result
         })
@@ -173,9 +173,9 @@ fn generate_when(when_expr: &WhenExpr) -> TokenStream {
     quote! {
         winnow::combinator::trace("when", |input: &mut Input<'_, ParseState>| {
             if #condition_check {
-                (#body).parse_next(input)
+                (#body).void().parse_next(input)
             } else {
-                Ok(Default::default())
+                Ok(())
             }
         })
     }
@@ -223,7 +223,7 @@ fn generate_depth_limit(dl: &DepthLimitExpr) -> TokenStream {
                 ));
             }
             input.state.increment_counter("__recursion_depth", 1);
-            let result = (#body).parse_next(input);
+            let result = (#body).void().parse_next(input);
             input.state.decrement_counter("__recursion_depth", 1);
             result
         })
