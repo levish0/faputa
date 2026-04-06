@@ -1,25 +1,22 @@
-use nanachi_meta::ast::{Grammar, Item, StateKind};
+use nanachi_meta::ast::StateKind;
+use nanachi_meta::ir::IrProgram;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
 /// Generate the `ParseState` struct and its `nanachi::State` impl.
-pub(crate) fn generate_state(grammar: &Grammar) -> TokenStream {
-    let flags: Vec<_> = grammar
-        .items
+pub(crate) fn generate_state(ir: &IrProgram) -> TokenStream {
+    let flags: Vec<_> = ir
+        .state_decls
         .iter()
-        .filter_map(|item| match item {
-            Item::StateDecl(decl) if decl.kind == StateKind::Flag => Some(&decl.name),
-            _ => None,
-        })
+        .filter(|decl| decl.kind == StateKind::Flag)
+        .map(|decl| &decl.name)
         .collect();
 
-    let counters: Vec<_> = grammar
-        .items
+    let counters: Vec<_> = ir
+        .state_decls
         .iter()
-        .filter_map(|item| match item {
-            Item::StateDecl(decl) if decl.kind == StateKind::Counter => Some(&decl.name),
-            _ => None,
-        })
+        .filter(|decl| decl.kind == StateKind::Counter)
+        .map(|decl| &decl.name)
         .collect();
 
     let flag_fields: Vec<_> = flags

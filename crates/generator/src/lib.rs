@@ -3,14 +3,18 @@ mod rules;
 mod state;
 mod statement;
 
-use nanachi_meta::ast::{Grammar, Item};
+use nanachi_meta::ast::Grammar;
+use nanachi_meta::ir::{self, IrProgram};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
 fn generate_module_inner(grammar: &Grammar) -> TokenStream {
-    let state_code = state::generate_state(grammar);
-    let rules_code = rules::generate_rules(grammar);
-    let entry_code = generate_entry(grammar);
+    let ir = ir::lower(grammar);
+    let ir = ir::optimize(ir);
+
+    let state_code = state::generate_state(&ir);
+    let rules_code = rules::generate_rules(&ir);
+    let entry_code = generate_entry(&ir);
     quote::quote! {
         use nanachi::winnow;
         use nanachi::winnow::prelude::*;
@@ -50,50 +54,48 @@ pub fn generate_with_mod(grammar: &Grammar, mod_name: &proc_macro2::Ident) -> To
 }
 
 /// Generate `pub fn parse_<rule>(source: &str) -> Result<&str, String>` for each rule.
-fn generate_entry(grammar: &Grammar) -> TokenStream {
-    let entries: Vec<_> = grammar
-        .items
+fn generate_entry(ir: &IrProgram) -> TokenStream {
+    let entries: Vec<_> = ir
+        .rules
         .iter()
-        .filter_map(|item| match item {
-            Item::RuleDef(rule) => {
-                let parse_fn = format_ident!("parse_{}", rule.name);
-                let rule_fn = format_ident!("{}", rule.name);
-                Some(quote! {
-                    pub fn #parse_fn(source: &str) -> Result<&str, String> {
-                        let state = ParseState::new(source);
-                        let mut input = Input {
-                            input: nanachi::LocatingSlice::new(source),
-                            state,
-                        };
-                        let matched = #rule_fn.parse_next(&mut input)
-                            .map_err(|e| {
-                                let offset = input.state.furthest_pos();
-                                let line_index = LineIndex::new(source);
-                                let (line, col) = line_index.line_col(offset);
-                                let inner = match e {
-                                    winnow::error::ErrMode::Backtrack(c)
-                                    | winnow::error::ErrMode::Cut(c) => format!("{c}"),
-                                    _ => format!("{e}"),
-                                };
-                                if inner.is_empty() {
-                                    format!("parse error at {line}:{col}")
-                                } else {
-                                    format!("parse error at {line}:{col}: {inner}")
-                                }
-                            })?;
-                        if !input.input.is_empty() {
-                            let offset = input.current_token_start();
+        .filter(|rule| !rule.inline)
+        .map(|rule| {
+            let parse_fn = format_ident!("parse_{}", rule.name);
+            let rule_fn = format_ident!("{}", rule.name);
+            quote! {
+                pub fn #parse_fn(source: &str) -> Result<&str, String> {
+                    let state = ParseState::new(source);
+                    let mut input = Input {
+                        input: nanachi::LocatingSlice::new(source),
+                        state,
+                    };
+                    let matched = #rule_fn.parse_next(&mut input)
+                        .map_err(|e| {
+                            let offset = input.state.furthest_pos();
                             let line_index = LineIndex::new(source);
                             let (line, col) = line_index.line_col(offset);
-                            return Err(format!(
-                                "unexpected trailing input at {line}:{col}"
-                            ));
-                        }
-                        Ok(matched)
+                            let inner = match e {
+                                winnow::error::ErrMode::Backtrack(c)
+                                | winnow::error::ErrMode::Cut(c) => format!("{c}"),
+                                _ => format!("{e}"),
+                            };
+                            if inner.is_empty() {
+                                format!("parse error at {line}:{col}")
+                            } else {
+                                format!("parse error at {line}:{col}: {inner}")
+                            }
+                        })?;
+                    if !input.input.is_empty() {
+                        let offset = input.current_token_start();
+                        let line_index = LineIndex::new(source);
+                        let (line, col) = line_index.line_col(offset);
+                        return Err(format!(
+                            "unexpected trailing input at {line}:{col}"
+                        ));
                     }
-                })
+                    Ok(matched)
+                }
             }
-            _ => None,
         })
         .collect();
 

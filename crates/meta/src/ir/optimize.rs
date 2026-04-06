@@ -827,10 +827,12 @@ mod tests {
     #[test]
     fn single_char_literal_to_charset_in_choice() {
         // Single-char Literals in Choice should merge with CharSets.
+        // " " | "\t" | "\n" | "\r" → chars \t(9), \n(10), \r(13), ' '(32)
+        // \t and \n are adjacent → coalesced: [9..10, 13..13, 32..32] = 3 ranges
         let ir = optimized(r#"ws = { " " | "\t" | "\n" | "\r" }"#);
         match &ir.rules[0].expr {
             IrExpr::CharSet(ranges) => {
-                assert_eq!(ranges.len(), 4); // \t, \n, \r, ' ' (space)
+                assert_eq!(ranges.len(), 3);
             }
             other => panic!("expected CharSet, got {other:?}"),
         }
@@ -854,10 +856,11 @@ mod tests {
     #[test]
     fn take_while_from_choice_repeat() {
         // (" " | "\t" | "\n" | "\r")* → single CharSet from merge → TakeWhile
+        // \t and \n are adjacent → coalesced: 3 ranges
         let ir = optimized(r#"ws = { (" " | "\t" | "\n" | "\r")* }"#);
         match &ir.rules[0].expr {
             IrExpr::TakeWhile { ranges, min, max } => {
-                assert_eq!(ranges.len(), 4);
+                assert_eq!(ranges.len(), 3);
                 assert_eq!(*min, 0);
                 assert_eq!(*max, None);
             }

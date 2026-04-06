@@ -1,18 +1,22 @@
-use nanachi_meta::ast::{BuiltinPredicate, CompareOp, EmitStmt, GuardCondition, Statement};
+use nanachi_meta::ast::{BuiltinPredicate, CompareOp, GuardCondition};
 use proc_macro2::TokenStream;
 use quote::quote;
 
-/// Generate code for a list of statements (guards, emits) that precede a rule's expression.
-pub(crate) fn generate_statements(statements: &[Statement]) -> TokenStream {
-    let stmts: Vec<_> = statements.iter().map(generate_statement).collect();
-    quote! { #(#stmts)* }
-}
-
-fn generate_statement(stmt: &Statement) -> TokenStream {
-    match stmt {
-        Statement::Guard(guard) => generate_guard(&guard.condition),
-        Statement::Emit(emit) => generate_emit(emit),
-    }
+/// Generate code for guards and emits that precede a rule's expression.
+pub(crate) fn generate_statements(
+    guards: &[GuardCondition],
+    emits: &[String],
+) -> TokenStream {
+    let guard_stmts: Vec<_> = guards.iter().map(generate_guard).collect();
+    let emit_stmts: Vec<_> = emits
+        .iter()
+        .map(|name| {
+            quote! {
+                input.state.increment_counter(#name, 1);
+            }
+        })
+        .collect();
+    quote! { #(#guard_stmts)* #(#emit_stmts)* }
 }
 
 fn generate_guard(condition: &GuardCondition) -> TokenStream {
@@ -109,12 +113,5 @@ fn generate_builtin_guard(builtin: &BuiltinPredicate) -> TokenStream {
             // guard ANY always passes (there's always "any" possible)
             quote! {}
         }
-    }
-}
-
-fn generate_emit(emit: &EmitStmt) -> TokenStream {
-    let name = &emit.counter;
-    quote! {
-        input.state.increment_counter(#name, 1);
     }
 }
