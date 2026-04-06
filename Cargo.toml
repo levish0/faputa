@@ -24,7 +24,7 @@ nanachi_vm = { path = "crates/vm", version = "0.1.4" }
 nanachi_debugger = { path = "crates/debugger", version = "0.1.4" }
 
 # External dependencies
-winnow = { version = "1.0.1", features = ["simd"] }
+winnow = { version = "1.0.1", features = ["simd", "debug"] }
 memchr = "2.8.0"
 logos = "0.16.1"
 proc-macro2 = "1.0.106"
