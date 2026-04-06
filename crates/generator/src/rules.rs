@@ -20,6 +20,7 @@ fn generate_rule(rule: &MirRule, ir: &MirProgram) -> TokenStream {
     let fn_name = format_ident!("{}", rule.name);
     let label = rule.error_label.as_deref().unwrap_or(&rule.name);
     let is_entry_point = rule.ref_count == 0;
+    let keep_context = is_entry_point || rule.error_label.is_some();
 
     tracing::trace!(
         rule = %rule.name,
@@ -35,7 +36,7 @@ fn generate_rule(rule: &MirRule, ir: &MirProgram) -> TokenStream {
     let has_statements = !rule.guards.is_empty() || !rule.emits.is_empty();
 
     if is_entry_point {
-        // Entry point: track_pos + trace + context
+        // Entry point: keep rule label context for surfaced parse errors.
         if has_statements {
             quote! {
                 fn #fn_name<'i>(input: &mut Input<'i, ParseState<'i>>) -> ModalResult<()> {
@@ -58,8 +59,8 @@ fn generate_rule(rule: &MirRule, ir: &MirProgram) -> TokenStream {
                 }
             }
         }
-    } else {
-        // Internal rule: track_pos + context (no trace)
+    } else if keep_context {
+        // Explicitly labeled helper rule: preserve user-authored context.
         if has_statements {
             quote! {
                 fn #fn_name<'i>(input: &mut Input<'i, ParseState<'i>>) -> ModalResult<()> {
@@ -78,6 +79,28 @@ fn generate_rule(rule: &MirRule, ir: &MirProgram) -> TokenStream {
                     input.state.track_pos(input.current_token_start());
                     (#expr_code).void()
                         .context(StrContext::Label(#label))
+                        .parse_next(input)
+                }
+            }
+        }
+    } else {
+        // Internal helper rule: avoid per-call context wrappers on the hot path.
+        if has_statements {
+            quote! {
+                fn #fn_name<'i>(input: &mut Input<'i, ParseState<'i>>) -> ModalResult<()> {
+                    input.state.track_pos(input.current_token_start());
+                    (|input: &mut Input<'i, ParseState<'i>>| {
+                        #guard_code
+                        (#expr_code).void().parse_next(input)
+                    })
+                    .parse_next(input)
+                }
+            }
+        } else {
+            quote! {
+                fn #fn_name<'i>(input: &mut Input<'i, ParseState<'i>>) -> ModalResult<()> {
+                    input.state.track_pos(input.current_token_start());
+                    (#expr_code).void()
                         .parse_next(input)
                 }
             }

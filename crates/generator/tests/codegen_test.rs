@@ -212,6 +212,30 @@ fn generates_rule_references() {
 }
 
 #[test]
+fn skips_default_context_for_internal_helper_rules() {
+    let code = generate_code(
+        r#"
+        word = { ('a'..'z' | 'A'..'Z')+ }
+        pair = { word word }
+    "#,
+    );
+    assert!(code.contains("Label (\"pair\")"));
+    assert!(!code.contains("Label (\"word\")"));
+}
+
+#[test]
+fn preserves_explicit_context_for_internal_helper_rules() {
+    let code = generate_code(
+        r#"
+        word = @ "word" { ('a'..'z' | 'A'..'Z')+ }
+        pair = { word word }
+    "#,
+    );
+    assert!(code.contains("Label (\"pair\")"));
+    assert!(code.contains("Label (\"word\")"));
+}
+
+#[test]
 fn generates_builtin_exprs() {
     let code = generate_code(
         r#"
