@@ -39,7 +39,7 @@ fn generate_module_inner(grammar: &Grammar) -> TokenStream {
 pub fn generate(grammar: &Grammar) -> TokenStream {
     let inner = generate_module_inner(grammar);
     quote::quote! {
-        #[allow(dead_code, unused_imports, unused_variables)]
+        #[allow(dead_code, unused_imports, unused_variables, unused_parens)]
         pub mod __faputa {
             #inner
         }
@@ -51,7 +51,7 @@ pub fn generate_with_mod(grammar: &Grammar, mod_name: &proc_macro2::Ident) -> To
     let inner = generate_module_inner(grammar);
     quote::quote! {
         #[doc(hidden)]
-        #[allow(dead_code, unused_imports, unused_variables)]
+        #[allow(dead_code, unused_imports, unused_variables, unused_parens)]
         mod #mod_name {
             #inner
         }

@@ -3,9 +3,11 @@ use crate::mir::{MirProgram, lower};
 
 use super::optimize;
 
+mod delimited;
 mod dispatch;
 mod list;
 mod patterns;
+mod repeat;
 mod scan;
 
 pub(super) fn optimized(source: &str) -> MirProgram {

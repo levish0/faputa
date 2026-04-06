@@ -1,6 +1,8 @@
+mod delimited;
 mod dispatch;
 mod list;
 mod patterns;
+mod repeat;
 mod scan;
 
 #[cfg(test)]
@@ -35,6 +37,18 @@ pub fn optimize(program: MirProgram) -> MirProgram {
     tracing::debug!(
         transformed = changed_rule_count(&before, &program),
         "phase 4 (separated_list) complete"
+    );
+    let before = program.clone();
+    let program = repeat::recognize_unbounded_loop(program);
+    tracing::debug!(
+        transformed = changed_rule_count(&before, &program),
+        "phase 5 (loop) complete"
+    );
+    let before = program.clone();
+    let program = delimited::recognize_delimited(program);
+    tracing::debug!(
+        transformed = changed_rule_count(&before, &program),
+        "phase 6 (delimited) complete"
     );
     program
 }

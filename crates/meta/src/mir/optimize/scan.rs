@@ -48,6 +48,15 @@ fn recognize_scan_expr(expr: MirExpr, rules: &[MirRule]) -> MirExpr {
                 max,
             }
         }
+        MirExpr::Loop { body, min } => MirExpr::Loop {
+            body: Box::new(recognize_scan_expr(*body, rules)),
+            min,
+        },
+        MirExpr::Delimited { open, body, close } => MirExpr::Delimited {
+            open: Box::new(recognize_scan_expr(*open, rules)),
+            body: Box::new(recognize_scan_expr(*body, rules)),
+            close: Box::new(recognize_scan_expr(*close, rules)),
+        },
         MirExpr::PosLookahead(inner) => {
             MirExpr::PosLookahead(Box::new(recognize_scan_expr(*inner, rules)))
         }

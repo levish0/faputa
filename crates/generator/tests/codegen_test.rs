@@ -94,7 +94,7 @@ fn generates_repetition_variants() {
     "#,
     );
     assert!(code.contains("repeat (1")); // 1.. for +
-    assert!(code.contains("repeat (0")); // 0.. for *
+    assert!(code.contains("checkpoint")); // unbounded non-nullable repeat lowers to direct loop
     assert!(code.contains("opt")); // ?
 }
 

@@ -19,6 +19,17 @@ pub enum MirExpr {
         max: Option<u32>,
     },
 
+    Loop {
+        body: Box<MirExpr>,
+        min: u32,
+    },
+
+    Delimited {
+        open: Box<MirExpr>,
+        body: Box<MirExpr>,
+        close: Box<MirExpr>,
+    },
+
     PosLookahead(Box<MirExpr>),
     NegLookahead(Box<MirExpr>),
 

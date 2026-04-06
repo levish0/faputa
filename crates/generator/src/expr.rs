@@ -76,6 +76,10 @@ pub(crate) fn generate_expr(expr: &MirExpr, ir: &MirProgram) -> TokenStream {
 
         MirExpr::Repeat { expr, min, max } => generate_repeat(expr, *min, *max, ir),
 
+        MirExpr::Loop { body, min } => generate_loop(body, *min, ir),
+
+        MirExpr::Delimited { open, body, close } => generate_delimited(open, body, close, ir),
+
         MirExpr::Scan {
             plain_ranges,
             specials,
@@ -303,6 +307,68 @@ fn generate_repeat(expr: &MirExpr, min: u32, max: Option<u32>, ir: &MirProgram) 
         quote! { opt(#inner) }
     } else {
         quote! { repeat(#range, #inner)#fold }
+    }
+}
+
+fn generate_loop(body: &MirExpr, min: u32, ir: &MirProgram) -> TokenStream {
+    let body = generate_expr(body, ir);
+    if min == 0 {
+        quote! {
+            (|input: &mut Input<'i, ParseState<'i>>| -> ModalResult<()> {
+                loop {
+                    let checkpoint = input.checkpoint();
+                    match (#body).void().parse_next(input) {
+                        Ok(()) => {}
+                        Err(winnow::error::ErrMode::Backtrack(_)) => {
+                            input.reset(&checkpoint);
+                            return Ok(());
+                        }
+                        Err(err) => return Err(err),
+                    }
+                }
+            })
+        }
+    } else {
+        let min = min as usize;
+        quote! {
+            (|input: &mut Input<'i, ParseState<'i>>| -> ModalResult<()> {
+                for _ in 0..#min {
+                    (#body).void().parse_next(input)?;
+                }
+                loop {
+                    let checkpoint = input.checkpoint();
+                    match (#body).void().parse_next(input) {
+                        Ok(()) => {}
+                        Err(winnow::error::ErrMode::Backtrack(_)) => {
+                            input.reset(&checkpoint);
+                            return Ok(());
+                        }
+                        Err(err) => return Err(err),
+                    }
+                }
+            })
+        }
+    }
+}
+
+fn generate_delimited(
+    open: &MirExpr,
+    body: &MirExpr,
+    close: &MirExpr,
+    ir: &MirProgram,
+) -> TokenStream {
+    let open = generate_expr(open, ir);
+    let body = generate_expr(body, ir);
+    let close = generate_expr(close, ir);
+
+    quote! {
+        (|input: &mut Input<'i, ParseState<'i>>| -> ModalResult<()> {
+            (#open).void().parse_next(input)?;
+            input.state.track_pos(input.current_token_start());
+            (#body).void().parse_next(input)?;
+            input.state.track_pos(input.current_token_start());
+            (#close).void().parse_next(input)
+        })
     }
 }
 
