@@ -58,8 +58,7 @@ mod tests {
     #[test]
     fn json_parse_error_reports_location_and_context() {
         let err = Json::parse_json("{\n  \"a\": 1,\n}").unwrap_err();
-        // Error reports location; context comes from entry-point Label
-        assert!(err.contains("parse error at"));
+        assert!(err.starts_with("parse error at 3:"));
     }
 
     #[test]

@@ -27,7 +27,7 @@ fn generate_rule(rule: &IrRule, ir: &IrProgram) -> TokenStream {
     let has_statements = !rule.guards.is_empty() || !rule.emits.is_empty();
 
     if is_entry_point {
-        // Entry point: full trace + context + track_pos
+        // Entry point: track_pos + trace + context
         if has_statements {
             quote! {
                 fn #fn_name<'i>(input: &mut Input<'i, ParseState>) -> ModalResult<&'i str> {
@@ -51,10 +51,11 @@ fn generate_rule(rule: &IrRule, ir: &IrProgram) -> TokenStream {
             }
         }
     } else {
-        // Internal rule: no trace, no context, no track_pos
+        // Internal rule: track_pos only (no trace, no context)
         if has_statements {
             quote! {
                 fn #fn_name<'i>(input: &mut Input<'i, ParseState>) -> ModalResult<&'i str> {
+                    input.state.track_pos(input.current_token_start());
                     (|input: &mut Input<'i, ParseState>| {
                         #guard_code
                         (#expr_code).take().parse_next(input)
@@ -64,6 +65,7 @@ fn generate_rule(rule: &IrRule, ir: &IrProgram) -> TokenStream {
         } else {
             quote! {
                 fn #fn_name<'i>(input: &mut Input<'i, ParseState>) -> ModalResult<&'i str> {
+                    input.state.track_pos(input.current_token_start());
                     (#expr_code).take().parse_next(input)
                 }
             }
