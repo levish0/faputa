@@ -106,3 +106,17 @@ fn ref_count_internal_rule() {
     let special = ir.rules.iter().find(|r| r.name == "special").unwrap();
     assert_eq!(special.ref_count, 2);
 }
+
+#[test]
+fn small_single_use_helper_rule_inlined() {
+    let ir = optimized(
+        r#"
+        ws = { (" " | "\n")* }
+        digit = { '0'..'9' }
+        comma_value = { ws "," ws digit+ }
+        items = { digit+ comma_value* }
+    "#,
+    );
+    let helper = ir.rules.iter().find(|r| r.name == "comma_value").unwrap();
+    assert!(helper.inline);
+}

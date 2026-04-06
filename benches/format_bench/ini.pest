@@ -1,0 +1,17 @@
+// Source: pest book INI example
+// https://github.com/pest-parser/book/blob/master/examples/ini-parser/src/ini.pest
+
+file = {
+    SOI ~
+    ((section | property)? ~ NEWLINE)* ~
+    EOI
+}
+
+char = { ASCII_ALPHANUMERIC | "." | "_" | "/" }
+
+section = { "[" ~ name ~ "]" }
+property = { name ~ "=" ~ value }
+    name = @{ char+ }
+    value = @{ char* }
+
+WHITESPACE = _{ " " }

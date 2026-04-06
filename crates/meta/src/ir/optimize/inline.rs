@@ -115,10 +115,10 @@ fn estimate_cost(expr: &IrExpr) -> usize {
         | IrExpr::PosLookahead(expr)
         | IrExpr::NegLookahead(expr)
         | IrExpr::Labeled { expr, .. } => 1 + estimate_cost(expr),
-        IrExpr::WithFlag { body, .. }
-        | IrExpr::WithCounter { body, .. }
-        | IrExpr::When { body, .. }
-        | IrExpr::DepthLimit { body, .. } => usize::MAX / 4,
+        IrExpr::WithFlag { body: _, .. }
+        | IrExpr::WithCounter { body: _, .. }
+        | IrExpr::When { body: _, .. }
+        | IrExpr::DepthLimit { body: _, .. } => usize::MAX / 4,
         IrExpr::TakeWhile { .. } => 1,
         IrExpr::Scan { specials, .. } => {
             1 + specials.iter().map(|arm| estimate_cost(&arm.expr)).sum::<usize>()

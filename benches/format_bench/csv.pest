@@ -1,0 +1,6 @@
+// Source: pest book CSV example
+// https://github.com/pest-parser/book/blob/master/examples/csv-tool/src/csv.pest
+
+field = { (ASCII_DIGIT | "." | "-")+ }
+record = { field ~ ("," ~ field)* }
+file = { SOI ~ (record ~ ("\r\n" | "\n"))* ~ EOI }

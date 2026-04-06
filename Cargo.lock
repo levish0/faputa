@@ -444,6 +444,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
 
 [[package]]
+name = "format_bench"
+version = "0.0.0"
+dependencies = [
+ "criterion",
+ "faputa",
+ "faputa_derive",
+ "pest",
+ "pest_derive",
+ "serde_json",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -573,18 +585,6 @@ checksum = "2e04e2ef80ce82e13552136fabeef8a5ed1f985a96805761cbb9a2c34e7664d9"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "json_bench"
-version = "0.0.0"
-dependencies = [
- "criterion",
- "faputa",
- "faputa_derive",
- "pest",
- "pest_derive",
- "serde_json",
 ]
 
 [[package]]

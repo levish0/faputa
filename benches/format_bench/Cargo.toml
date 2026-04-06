@@ -1,11 +1,11 @@
 [package]
-name = "json_bench"
+name = "format_bench"
 version = "0.0.0"
 edition = "2024"
 publish = false
 
 [[bench]]
-name = "json_parse"
+name = "format_parse"
 harness = false
 
 [dependencies]

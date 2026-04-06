@@ -1,0 +1,17 @@
+// Port of the pest book INI example:
+// https://github.com/pest-parser/book/blob/master/examples/ini-parser/src/ini.pest
+
+digit   = { '0'..'9' }
+lower   = { 'a'..'z' }
+upper   = { 'A'..'Z' }
+alnum   = { digit | lower | upper }
+char    = { alnum | "." | "_" | "/" }
+name    = { char+ }
+value   = { char* }
+sp      = { " "* }
+newline = { "\r\n" | "\n" }
+
+section  = { "[" sp name sp "]" }
+property = { name sp "=" sp value }
+line     = { (sp (section | property) sp)? newline }
+file     = { SOI line* EOI }

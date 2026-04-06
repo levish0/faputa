@@ -1,0 +1,27 @@
+// Port of the pest_grammars HTTP grammar:
+// https://github.com/pest-parser/pest/blob/master/grammars/src/grammars/http.pest
+
+digit             = { '0'..'9' }
+newline           = { "\r\n" | "\n" }
+hspace            = { " " | "\t" }
+space             = { " " }
+spaces1           = { space+ }
+method            = { "GET" | "DELETE" | "POST" | "PUT" }
+version_char      = { digit | "." }
+version           = { version_char+ }
+uri_char          = { !(" " | "\t") ANY }
+uri               = { uri_char+ }
+header_name_char  = { !(":" | "\r" | "\n") ANY }
+header_value_char = { !("\r" | "\n") ANY }
+header_name       = { header_name_char+ }
+header_value      = { header_value_char+ }
+
+request_head = @ "request head" { method spaces1 uri spaces1 }
+protocol     = @ "http protocol" { "HTTP/" version }
+request_line = { request_head protocol newline }
+headers      = { header+ }
+header_head  = @ "header head" { header_name ":" hspace }
+header       = { header_head header_value newline }
+delimiter    = { newline+ }
+request      = { request_line headers? newline }
+http         = { SOI (delimiter | request)* EOI }

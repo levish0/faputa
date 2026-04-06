@@ -1,0 +1,9 @@
+// Port of the pest book CSV example:
+// https://github.com/pest-parser/book/blob/master/examples/csv-tool/src/csv.pest
+
+digit      = { '0'..'9' }
+field_char = { digit | "." | "-" }
+field      = { field_char+ }
+record     = { field ("," field)* }
+newline    = { "\r\n" | "\n" }
+file       = { SOI (record newline)* EOI }

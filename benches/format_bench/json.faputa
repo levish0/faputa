@@ -1,15 +1,13 @@
-// JSON grammar (RFC 8259)
+// Ported from the existing faputa JSON benchmark grammar.
 
 ws = { (" " | "\t" | "\n" | "\r")* }
 
-// Strings
 hex         = { '0'..'9' | 'a'..'f' | 'A'..'F' }
 uni_escape  = { "\\u" hex hex hex hex }
 escape      = { "\\" ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t") }
 string_char = { uni_escape | escape | (!("\"" | "\\") ANY) }
 string      = { "\"" string_char* "\"" }
 
-// Numbers
 digit    = { '0'..'9' }
 digit19  = { '1'..'9' }
 integer  = { "-"? ("0" | digit19 digit*) }
@@ -17,12 +15,10 @@ fraction = { "." digit+ }
 exponent = { ("e" | "E") ("+" | "-")? digit+ }
 number   = { integer fraction? exponent? }
 
-// Keywords
 true_val  = { "true" }
 false_val = { "false" }
 null_val  = { "null" }
 
-// Composite types
 comma_value  = { ws "," ws value }
 array_items  = { value comma_value* }
 array        = { "[" ws array_items? ws "]" }
@@ -32,6 +28,5 @@ comma_pair   = { ws "," ws pair }
 object_items = { pair comma_pair* }
 object       = { "{" ws object_items? ws "}" }
 
-// Top-level
 value = { ws (object | array | string | number | true_val | false_val | null_val) ws }
 json  = { SOI ws value ws EOI }

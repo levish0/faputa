@@ -1,3 +1,5 @@
+// Ported from the existing pest JSON benchmark grammar.
+
 json = { SOI ~ value ~ EOI }
 
 object = { "{" ~ pair ~ ("," ~ pair)* ~ "}" | "{" ~ "}" }
