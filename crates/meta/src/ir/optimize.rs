@@ -5,7 +5,7 @@
 
 use std::collections::HashSet;
 
-use super::{CharRange, IrExpr, IrProgram, IrRule};
+use super::{AsciiClass, CharRange, IrExpr, IrProgram, IrRule};
 
 /// Run all optimization passes on the program.
 #[tracing::instrument(skip_all, fields(rules = program.rules.len()))]
@@ -27,6 +27,7 @@ pub fn optimize(program: IrProgram) -> IrProgram {
     tracing::debug!("phase 3 (re-normalize) complete");
     // Phase 4: Recognize fused patterns
     let program = recognize_take_while(program);
+    let program = recognize_ascii_builtins(program);
     tracing::debug!("phase 4 (pattern recognition) complete");
     // Phase 5: Cleanup
     let program = eliminate_dead_rules(program);
@@ -431,6 +432,7 @@ fn is_trivial(rule: &IrRule) -> bool {
             | IrExpr::Any
             | IrExpr::Boundary(_)
             | IrExpr::TakeWhile { .. }
+            | IrExpr::AsciiBuiltin(_)
     )
 }
 
@@ -606,6 +608,206 @@ fn recognize_take_while_expr(expr: IrExpr) -> IrExpr {
     }
 }
 
+// ── Pass 5.6: Recognize winnow::ascii builtins ──
+//
+// `TakeWhile { ranges, min: 0|1, max: None }` where `ranges` matches a
+// well-known ASCII class → `AsciiBuiltin(class)`.
+
+fn recognize_ascii_builtins(mut program: IrProgram) -> IrProgram {
+    for rule in &mut program.rules {
+        let before = rule.expr.clone();
+        rule.expr = recognize_ascii_expr(rule.expr.clone());
+        if rule.expr != before {
+            tracing::trace!(rule = %rule.name, "recognize_ascii_builtins: matched");
+        }
+    }
+    program
+}
+
+fn recognize_ascii_expr(expr: IrExpr) -> IrExpr {
+    match expr {
+        IrExpr::TakeWhile {
+            ref ranges,
+            min,
+            max: None,
+        } if min <= 1 => {
+            if let Some(class) = match_ascii_class(ranges, min) {
+                IrExpr::AsciiBuiltin(class)
+            } else {
+                expr
+            }
+        }
+        IrExpr::Seq(items) => IrExpr::Seq(items.into_iter().map(recognize_ascii_expr).collect()),
+        IrExpr::Choice(items) => {
+            IrExpr::Choice(items.into_iter().map(recognize_ascii_expr).collect())
+        }
+        IrExpr::Repeat { expr, min, max } => IrExpr::Repeat {
+            expr: Box::new(recognize_ascii_expr(*expr)),
+            min,
+            max,
+        },
+        IrExpr::PosLookahead(inner) => {
+            IrExpr::PosLookahead(Box::new(recognize_ascii_expr(*inner)))
+        }
+        IrExpr::NegLookahead(inner) => {
+            IrExpr::NegLookahead(Box::new(recognize_ascii_expr(*inner)))
+        }
+        IrExpr::WithFlag { flag, body } => IrExpr::WithFlag {
+            flag,
+            body: Box::new(recognize_ascii_expr(*body)),
+        },
+        IrExpr::WithCounter {
+            counter,
+            amount,
+            body,
+        } => IrExpr::WithCounter {
+            counter,
+            amount,
+            body: Box::new(recognize_ascii_expr(*body)),
+        },
+        IrExpr::When { condition, body } => IrExpr::When {
+            condition,
+            body: Box::new(recognize_ascii_expr(*body)),
+        },
+        IrExpr::DepthLimit { limit, body } => IrExpr::DepthLimit {
+            limit,
+            body: Box::new(recognize_ascii_expr(*body)),
+        },
+        IrExpr::Labeled { expr, label } => IrExpr::Labeled {
+            expr: Box::new(recognize_ascii_expr(*expr)),
+            label,
+        },
+        other => other,
+    }
+}
+
+/// Check if sorted, coalesced ranges match a known ASCII character class.
+fn match_ascii_class(ranges: &[CharRange], min: u32) -> Option<AsciiClass> {
+    let mut sorted = ranges.to_vec();
+    sorted.sort();
+
+    let class = match sorted.as_slice() {
+        // digit: '0'..='9'
+        [r] if r.start == '0' && r.end == '9' => {
+            if min == 0 {
+                AsciiClass::Digit0
+            } else {
+                AsciiClass::Digit1
+            }
+        }
+        // oct_digit: '0'..='7'
+        [r] if r.start == '0' && r.end == '7' => {
+            if min == 0 {
+                AsciiClass::OctDigit0
+            } else {
+                AsciiClass::OctDigit1
+            }
+        }
+        // alpha: 'A'..='Z', 'a'..='z'
+        [a, b] if a.start == 'A' && a.end == 'Z' && b.start == 'a' && b.end == 'z' => {
+            if min == 0 {
+                AsciiClass::Alpha0
+            } else {
+                AsciiClass::Alpha1
+            }
+        }
+        // alphanumeric: '0'..='9', 'A'..='Z', 'a'..='z'
+        [d, a, b]
+            if d.start == '0'
+                && d.end == '9'
+                && a.start == 'A'
+                && a.end == 'Z'
+                && b.start == 'a'
+                && b.end == 'z' =>
+        {
+            if min == 0 {
+                AsciiClass::Alphanumeric0
+            } else {
+                AsciiClass::Alphanumeric1
+            }
+        }
+        // hex_digit: '0'..='9', 'A'..='F', 'a'..='f'
+        [d, a, b]
+            if d.start == '0'
+                && d.end == '9'
+                && a.start == 'A'
+                && a.end == 'F'
+                && b.start == 'a'
+                && b.end == 'f' =>
+        {
+            if min == 0 {
+                AsciiClass::HexDigit0
+            } else {
+                AsciiClass::HexDigit1
+            }
+        }
+        _ => {
+            // space: ' ', '\t'  (after coalescing: ['\t', ' '] are not adjacent)
+            // multispace: '\t', '\n', '\r', ' ' (after coalescing: ['\t'..='\r', ' '])
+            if matches_multispace(&sorted) {
+                if min == 0 {
+                    AsciiClass::Multispace0
+                } else {
+                    AsciiClass::Multispace1
+                }
+            } else if matches_space(&sorted) {
+                if min == 0 {
+                    AsciiClass::Space0
+                } else {
+                    AsciiClass::Space1
+                }
+            } else {
+                return None;
+            }
+        }
+    };
+    Some(class)
+}
+
+/// Check if ranges match `' ' | '\t'` (space0/1).
+fn matches_space(sorted: &[CharRange]) -> bool {
+    // '\t' = 0x09, ' ' = 0x20 — not adjacent, so 2 separate ranges
+    match sorted {
+        [a, b] if a == &CharRange::single('\t') && b == &CharRange::single(' ') => true,
+        // Or already a single range covering both (unlikely but handle)
+        _ => {
+            let chars: Vec<char> = expand_ranges(sorted);
+            chars.len() == 2 && chars.contains(&'\t') && chars.contains(&' ')
+        }
+    }
+}
+
+/// Check if ranges match `' ' | '\t' | '\n' | '\r'` (multispace0/1).
+fn matches_multispace(sorted: &[CharRange]) -> bool {
+    // '\t'=0x09, '\n'=0x0A, '\r'=0x0D, ' '=0x20
+    // After coalescing: ['\t'..='\n', '\r', ' '] or ['\t'..='\r', ' ']
+    let chars: Vec<char> = expand_ranges(sorted);
+    chars.len() == 4
+        && chars.contains(&'\t')
+        && chars.contains(&'\n')
+        && chars.contains(&'\r')
+        && chars.contains(&' ')
+}
+
+/// Expand character ranges to individual chars (only for small sets).
+fn expand_ranges(ranges: &[CharRange]) -> Vec<char> {
+    let mut chars = Vec::new();
+    for r in ranges {
+        let start = r.start as u32;
+        let end = r.end as u32;
+        // Safety limit — only expand small ranges
+        if end - start > 32 {
+            return Vec::new();
+        }
+        for code in start..=end {
+            if let Some(ch) = char::from_u32(code) {
+                chars.push(ch);
+            }
+        }
+    }
+    chars
+}
+
 // ── Pass 7: Compute ref_counts ──
 //
 // Count how many times each rule is referenced from non-inlined rules.
@@ -713,17 +915,9 @@ mod tests {
         "#,
         );
         // digit should be inlined into number.
-        // The Repeat { CharSet } pattern becomes TakeWhile.
+        // The Repeat { CharSet } pattern becomes TakeWhile → AsciiBuiltin(Digit1).
         let number = ir.rules.iter().find(|r| r.name == "number").unwrap();
-        match &number.expr {
-            IrExpr::TakeWhile { ranges, min, max } => {
-                assert_eq!(ranges.len(), 1);
-                assert_eq!(ranges[0], CharRange::new('0', '9'));
-                assert_eq!(*min, 1);
-                assert_eq!(*max, None);
-            }
-            other => panic!("expected TakeWhile, got {other:?}"),
-        }
+        assert_eq!(number.expr, IrExpr::AsciiBuiltin(AsciiClass::Digit1));
     }
 
     #[test]
@@ -752,13 +946,17 @@ mod tests {
         "#,
         );
         // alpha and digit are trivial → inlined but kept.
-        // ident should have CharSet + TakeWhile (from the merged repeat).
+        // ident should have CharSet + AsciiBuiltin(Alphanumeric0) (from the merged repeat).
         let ident = ir.rules.iter().find(|r| r.name == "ident").unwrap();
         match &ident.expr {
             IrExpr::Seq(items) => {
                 assert!(matches!(&items[0], IrExpr::CharSet(_)));
-                // (alpha | digit)* → merged CharSet repeat → TakeWhile
-                assert!(matches!(&items[1], IrExpr::TakeWhile { .. }));
+                // (alpha | digit)* → merged CharSet repeat → TakeWhile → AsciiBuiltin
+                assert!(
+                    matches!(&items[1], IrExpr::AsciiBuiltin(_) | IrExpr::TakeWhile { .. }),
+                    "expected AsciiBuiltin or TakeWhile, got {:?}",
+                    &items[1]
+                );
             }
             other => panic!("expected Seq, got {other:?}"),
         }
@@ -810,32 +1008,19 @@ mod tests {
 
     #[test]
     fn take_while_recognized() {
-        // digit* → TakeWhile { ranges: [('0','9')], min: 0, max: None }
+        // digit* → TakeWhile → AsciiBuiltin(Digit0)
         let ir = optimized("d = { '0'..'9'* }");
-        match &ir.rules[0].expr {
-            IrExpr::TakeWhile { ranges, min, max } => {
-                assert_eq!(ranges.len(), 1);
-                assert_eq!(ranges[0], CharRange::new('0', '9'));
-                assert_eq!(*min, 0);
-                assert_eq!(*max, None);
-            }
-            other => panic!("expected TakeWhile, got {other:?}"),
-        }
+        assert_eq!(ir.rules[0].expr, IrExpr::AsciiBuiltin(AsciiClass::Digit0));
     }
 
     #[test]
     fn take_while_from_choice_repeat() {
-        // (" " | "\t" | "\n" | "\r")* → single CharSet from merge → TakeWhile
-        // \t and \n are adjacent → coalesced: 3 ranges
+        // (" " | "\t" | "\n" | "\r")* → single CharSet from merge → TakeWhile → AsciiBuiltin(Multispace0)
         let ir = optimized(r#"ws = { (" " | "\t" | "\n" | "\r")* }"#);
-        match &ir.rules[0].expr {
-            IrExpr::TakeWhile { ranges, min, max } => {
-                assert_eq!(ranges.len(), 3);
-                assert_eq!(*min, 0);
-                assert_eq!(*max, None);
-            }
-            other => panic!("expected TakeWhile, got {other:?}"),
-        }
+        assert_eq!(
+            ir.rules[0].expr,
+            IrExpr::AsciiBuiltin(AsciiClass::Multispace0)
+        );
     }
 
     #[test]
@@ -876,5 +1061,42 @@ mod tests {
         );
         let special = ir.rules.iter().find(|r| r.name == "special").unwrap();
         assert_eq!(special.ref_count, 2); // referenced by a and b
+    }
+
+    #[test]
+    fn ascii_builtin_alpha() {
+        let ir = optimized(r#"a = { ('a'..'z' | 'A'..'Z')+ }"#);
+        assert_eq!(ir.rules[0].expr, IrExpr::AsciiBuiltin(AsciiClass::Alpha1));
+    }
+
+    #[test]
+    fn ascii_builtin_hex_digit() {
+        let ir = optimized(r#"h = { ('0'..'9' | 'a'..'f' | 'A'..'F')* }"#);
+        assert_eq!(
+            ir.rules[0].expr,
+            IrExpr::AsciiBuiltin(AsciiClass::HexDigit0)
+        );
+    }
+
+    #[test]
+    fn ascii_builtin_alphanumeric() {
+        let ir = optimized(r#"an = { ('a'..'z' | 'A'..'Z' | '0'..'9')+ }"#);
+        assert_eq!(
+            ir.rules[0].expr,
+            IrExpr::AsciiBuiltin(AsciiClass::Alphanumeric1)
+        );
+    }
+
+    #[test]
+    fn ascii_builtin_space() {
+        let ir = optimized(r#"s = { (" " | "\t")* }"#);
+        assert_eq!(ir.rules[0].expr, IrExpr::AsciiBuiltin(AsciiClass::Space0));
+    }
+
+    #[test]
+    fn take_while_bounded_stays_take_while() {
+        // Bounded repeats (e.g. {3}) should NOT become AsciiBuiltin
+        let ir = optimized("d = { '0'..'9'{3} }");
+        assert!(matches!(&ir.rules[0].expr, IrExpr::TakeWhile { .. }));
     }
 }

@@ -1,5 +1,5 @@
 use nanachi_meta::ast::{BuiltinPredicate, CompareOp, GuardCondition};
-use nanachi_meta::ir::{Boundary, CharRange, IrExpr, IrProgram};
+use nanachi_meta::ir::{AsciiClass, Boundary, CharRange, IrExpr, IrProgram};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
@@ -148,10 +148,31 @@ pub(crate) fn generate_expr(expr: &IrExpr, ir: &IrProgram) -> TokenStream {
 
         IrExpr::TakeWhile { ranges, min, max } => generate_take_while(ranges, *min, *max),
 
+        IrExpr::AsciiBuiltin(class) => generate_ascii_builtin(*class),
+
         IrExpr::Labeled { expr, label } => {
             let inner = generate_expr(expr, ir);
             quote! { (#inner).context(StrContext::Expected(StrContextValue::Description(#label))) }
         }
+    }
+}
+
+fn generate_ascii_builtin(class: AsciiClass) -> TokenStream {
+    match class {
+        AsciiClass::Digit0 => quote! { winnow::ascii::digit0 },
+        AsciiClass::Digit1 => quote! { winnow::ascii::digit1 },
+        AsciiClass::Alpha0 => quote! { winnow::ascii::alpha0 },
+        AsciiClass::Alpha1 => quote! { winnow::ascii::alpha1 },
+        AsciiClass::Alphanumeric0 => quote! { winnow::ascii::alphanumeric0 },
+        AsciiClass::Alphanumeric1 => quote! { winnow::ascii::alphanumeric1 },
+        AsciiClass::HexDigit0 => quote! { winnow::ascii::hex_digit0 },
+        AsciiClass::HexDigit1 => quote! { winnow::ascii::hex_digit1 },
+        AsciiClass::OctDigit0 => quote! { winnow::ascii::oct_digit0 },
+        AsciiClass::OctDigit1 => quote! { winnow::ascii::oct_digit1 },
+        AsciiClass::Multispace0 => quote! { winnow::ascii::multispace0 },
+        AsciiClass::Multispace1 => quote! { winnow::ascii::multispace1 },
+        AsciiClass::Space0 => quote! { winnow::ascii::space0 },
+        AsciiClass::Space1 => quote! { winnow::ascii::space1 },
     }
 }
 

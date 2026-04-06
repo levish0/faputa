@@ -13,3 +13,10 @@ categories.workspace = true
 [dependencies]
 winnow.workspace = true
 memchr.workspace = true
+
+[features]
+default = []
+## Enable winnow's `debug` feature — `trace()` combinators in generated
+## parsers will print a hierarchical parse tree to stderr at runtime.
+## Useful for diagnosing grammar issues during development.
+debug = ["winnow/debug"]
