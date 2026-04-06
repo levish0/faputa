@@ -5,6 +5,73 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] - 2026-04-06
+
+### Added
+
+- **A dedicated MIR stage** for parser-shape lowering and optimization
+  - The old single IR stage is now split into semantic **HIR** and codegen-oriented **MIR**
+  - MIR models parser execution shapes directly, including `Dispatch`, `TakeWhile`, `Scan`, `SeparatedList`, and `Loop`
+  - The code generator now consumes MIR instead of the semantic tree
+
+- **General-purpose MIR optimization passes**
+  - `Dispatch`: recognizes disjoint-prefix choices and lowers them to direct first-character dispatch
+  - `Scan`: recognizes chunkable repeated choices and lowers them to bulk scanning plus special-case branches
+  - `SeparatedList`: recognizes `item (sep item)*` patterns and lowers them to dedicated loops
+  - `Loop`: recognizes unbounded non-nullable repeats and lowers them to explicit checkpoint/reset loops
+
+- **Tracing instrumentation for MIR**
+  - `mir::lower()` and `mir::optimize()` now emit structured tracing events
+  - MIR optimization phases report how many rules changed per pass
+  - Rule-level MIR lowering and transformation points are now visible in debug logs
+
+- **A broader benchmark suite** in `benches/format_bench`
+  - Benchmarks now cover JSON, CSV, INI, and HTTP grammars
+  - Each format is compared against generated Faputa parsers, handwritten winnow baselines, and pest baselines
+  - JSON benchmarks also keep a `serde_json` baseline
+
+### Changed
+
+- **The compiler pipeline is now explicitly `HIR -> MIR -> codegen`**
+  - `faputa_meta::hir` now owns semantic lowering and semantic optimization
+  - `faputa_meta::mir` now owns parser-shape recognition and lowering for code generation
+  - Generator code, tests, and internal APIs were updated to reflect the split
+
+- **Generated parsers now specialize more of the hot path**
+  - Internal helper rules now operate as `ModalResult<()>` parsers, with output capture deferred to the public `parse_<rule>()` entry wrapper
+  - Recognized repeats and separated lists generate direct loops instead of generic `repeat(...).fold(...)` combinator stacks
+  - Recognized dispatch sites generate direct branching instead of always lowering to generic ordered `alt(...)`
+  - Recognized chunkable repeats generate bulk scanners instead of always consuming one character at a time
+
+- **Generated parse state no longer clones the full input**
+  - `ParseState` now borrows the original source slice instead of storing a per-parse `Vec<u8>` copy
+  - This removes an unconditional allocation and full-input copy from every parse
+
+- **Error-context policy is now selective instead of uniform**
+  - Entry-point rules keep `Label(...)` context and parser tracing
+  - Internal rules with explicit `@ "label"` annotations keep their user-authored label context
+  - Unlabeled internal helper rules no longer pay the runtime cost of default `Label(...)` wrappers
+  - The policy is now encoded in MIR metadata (`is_entry_point`, `needs_context`, `needs_trace`) rather than recomputed ad hoc in codegen
+
+### Performance
+
+- **Generated parsers improved substantially on the new benchmark suite**
+  - Representative `format_bench` runs on the included JSON/CSV/INI/HTTP workloads showed the generated parsers dropping from earlier multi-hundred-microsecond or millisecond ranges into low double-digit to low triple-digit microseconds
+  - Representative runs after the MIR and context-pruning work showed approximately:
+    - JSON: `75-82µs`
+    - CSV: `159-169µs`
+    - INI: `92-97µs`
+    - HTTP: `80-86µs`
+
+- **The largest measured win came from pruning default internal-rule context**
+  - Removing default `Label(...)` wrappers from unlabeled helper rules reduced hot-path wrapper overhead without regressing entry-point diagnostics
+
+### Internal
+
+- HIR/MIR optimizer tests were split into smaller per-pass modules to keep individual files focused as the optimization pipeline grew
+- Dead HIR-side parser-shape optimization modules were removed after the HIR/MIR split
+- New regression tests were added for MIR policy lowering and generator context behavior
+
 ## [0.1.6] - 2026-04-06
 
 ### Added
