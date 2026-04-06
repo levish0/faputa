@@ -53,11 +53,6 @@ fn recognize_list_expr(expr: MirExpr) -> MirExpr {
             body: Box::new(recognize_list_expr(*body)),
             min,
         },
-        MirExpr::Delimited { open, body, close } => MirExpr::Delimited {
-            open: Box::new(recognize_list_expr(*open)),
-            body: Box::new(recognize_list_expr(*body)),
-            close: Box::new(recognize_list_expr(*close)),
-        },
         MirExpr::PosLookahead(inner) => {
             MirExpr::PosLookahead(Box::new(recognize_list_expr(*inner)))
         }

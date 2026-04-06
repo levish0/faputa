@@ -33,11 +33,6 @@ fn recognize_take_while_expr(expr: MirExpr) -> MirExpr {
             body: Box::new(recognize_take_while_expr(*body)),
             min,
         },
-        MirExpr::Delimited { open, body, close } => MirExpr::Delimited {
-            open: Box::new(recognize_take_while_expr(*open)),
-            body: Box::new(recognize_take_while_expr(*body)),
-            close: Box::new(recognize_take_while_expr(*close)),
-        },
         MirExpr::Seq(items) => {
             MirExpr::Seq(items.into_iter().map(recognize_take_while_expr).collect())
         }

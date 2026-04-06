@@ -78,8 +78,6 @@ pub(crate) fn generate_expr(expr: &MirExpr, ir: &MirProgram) -> TokenStream {
 
         MirExpr::Loop { body, min } => generate_loop(body, *min, ir),
 
-        MirExpr::Delimited { open, body, close } => generate_delimited(open, body, close, ir),
-
         MirExpr::Scan {
             plain_ranges,
             specials,
@@ -348,27 +346,6 @@ fn generate_loop(body: &MirExpr, min: u32, ir: &MirProgram) -> TokenStream {
                 }
             })
         }
-    }
-}
-
-fn generate_delimited(
-    open: &MirExpr,
-    body: &MirExpr,
-    close: &MirExpr,
-    ir: &MirProgram,
-) -> TokenStream {
-    let open = generate_expr(open, ir);
-    let body = generate_expr(body, ir);
-    let close = generate_expr(close, ir);
-
-    quote! {
-        (|input: &mut Input<'i, ParseState<'i>>| -> ModalResult<()> {
-            (#open).void().parse_next(input)?;
-            input.state.track_pos(input.current_token_start());
-            (#body).void().parse_next(input)?;
-            input.state.track_pos(input.current_token_start());
-            (#close).void().parse_next(input)
-        })
     }
 }
 

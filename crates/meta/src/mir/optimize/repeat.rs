@@ -55,11 +55,6 @@ fn recognize_loop_expr(expr: MirExpr, rules: &[MirRule]) -> MirExpr {
             body: Box::new(recognize_loop_expr(*body, rules)),
             min,
         },
-        MirExpr::Delimited { open, body, close } => MirExpr::Delimited {
-            open: Box::new(recognize_loop_expr(*open, rules)),
-            body: Box::new(recognize_loop_expr(*body, rules)),
-            close: Box::new(recognize_loop_expr(*close, rules)),
-        },
         MirExpr::PosLookahead(inner) => {
             MirExpr::PosLookahead(Box::new(recognize_loop_expr(*inner, rules)))
         }
@@ -173,11 +168,5 @@ fn min_consumption(expr: &MirExpr, rules: &[MirRule], visiting: &mut Vec<usize>)
         MirExpr::When { .. } => Some(0),
         MirExpr::TakeWhile { min, .. } | MirExpr::Scan { min, .. } => Some(*min),
         MirExpr::SeparatedList { first, .. } => min_consumption(first, rules, visiting),
-        MirExpr::Delimited { open, body, close } => {
-            let open = min_consumption(open, rules, visiting)?;
-            let body = min_consumption(body, rules, visiting)?;
-            let close = min_consumption(close, rules, visiting)?;
-            Some(open.saturating_add(body).saturating_add(close))
-        }
     }
 }

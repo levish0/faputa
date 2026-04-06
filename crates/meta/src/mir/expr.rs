@@ -24,12 +24,6 @@ pub enum MirExpr {
         min: u32,
     },
 
-    Delimited {
-        open: Box<MirExpr>,
-        body: Box<MirExpr>,
-        close: Box<MirExpr>,
-    },
-
     PosLookahead(Box<MirExpr>),
     NegLookahead(Box<MirExpr>),
 

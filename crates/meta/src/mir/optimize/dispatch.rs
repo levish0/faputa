@@ -49,11 +49,6 @@ fn recognize_dispatch_expr(expr: MirExpr, rules: &[MirRule]) -> MirExpr {
             body: Box::new(recognize_dispatch_expr(*body, rules)),
             min,
         },
-        MirExpr::Delimited { open, body, close } => MirExpr::Delimited {
-            open: Box::new(recognize_dispatch_expr(*open, rules)),
-            body: Box::new(recognize_dispatch_expr(*body, rules)),
-            close: Box::new(recognize_dispatch_expr(*close, rules)),
-        },
         MirExpr::PosLookahead(inner) => {
             MirExpr::PosLookahead(Box::new(recognize_dispatch_expr(*inner, rules)))
         }
@@ -289,7 +284,6 @@ fn first_chars(expr: &MirExpr, rules: &[MirRule], visiting: &mut Vec<usize>) -> 
             })
         }
         MirExpr::SeparatedList { first, .. } => first_chars(first, rules, visiting),
-        MirExpr::Delimited { open, .. } => first_chars(open, rules, visiting),
     }
 }
 
