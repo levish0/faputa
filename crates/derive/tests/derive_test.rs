@@ -22,6 +22,16 @@ fn inline_grammar_error_has_context() {
     assert!(err.contains("invalid alpha"));
 }
 
+#[derive(Parser)]
+#[grammar_inline(r#"value = @ "JSON value" { 'a'..'z'+ }"#)]
+struct LabeledValueParser;
+
+#[test]
+fn inline_grammar_error_uses_rule_label() {
+    let err = LabeledValueParser::parse_value("1").unwrap_err();
+    assert!(err.contains("invalid JSON value"));
+}
+
 // ── #[grammar] with file path ──
 
 #[derive(Parser)]

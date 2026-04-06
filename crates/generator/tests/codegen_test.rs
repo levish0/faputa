@@ -59,6 +59,14 @@ fn generates_error_context() {
 }
 
 #[test]
+fn generates_rule_level_error_label() {
+    let code = generate_code(r#"value = @ "JSON value" { "x" }"#);
+    assert!(code.contains("Label (\"JSON value\")"));
+    assert!(code.contains("trace (\"JSON value\""));
+    assert!(!code.contains("Label (\"value\")"));
+}
+
+#[test]
 fn generates_char_range() {
     let code = generate_code("alpha = { 'a'..'z' }");
     assert!(code.contains("one_of"));

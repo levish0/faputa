@@ -26,7 +26,38 @@ pub(crate) fn generate_expr(expr: &IrExpr, ir: &IrProgram) -> TokenStream {
 
         IrExpr::Seq(items) => {
             let codes: Vec<_> = items.iter().map(|e| generate_expr(e, ir)).collect();
-            quote! { (#(#codes),*) }
+            if codes.len() <= 1 {
+                return quote! { (#(#codes),*) };
+            }
+            // Interleave position tracking between sequence elements so that
+            // error positions reflect the furthest point actually reached.
+            let mut interleaved: Vec<TokenStream> = Vec::with_capacity(codes.len() * 2 - 1);
+            for (i, code) in codes.into_iter().enumerate() {
+                if i > 0 {
+                    interleaved.push(quote! {
+                        (|input: &mut Input<'_, ParseState>| -> ModalResult<()> {
+                            input.state.track_pos(input.current_token_start());
+                            Ok(())
+                        })
+                    });
+                }
+                interleaved.push(code);
+            }
+            // winnow tuple limit is 21 elements. With interleaving, N items
+            // become 2N-1 elements, so up to N=11 stays within limits.
+            // For larger sequences, use explicit sequential parsing.
+            if interleaved.len() <= 21 {
+                quote! { (#(#interleaved),*) }
+            } else {
+                quote! {
+                    (|input: &mut Input<'_, ParseState>| -> ModalResult<()> {
+                        #(
+                            (#interleaved).void().parse_next(input)?;
+                        )*
+                        Ok(())
+                    })
+                }
+            }
         }
 
         IrExpr::Choice(items) => {
