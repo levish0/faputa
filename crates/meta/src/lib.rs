@@ -9,9 +9,12 @@ pub mod validator;
 /// This is a convenience wrapper that runs [`parser::parse`] followed by
 /// [`validator::validate`].  Callers that need finer control (e.g. showing
 /// an AST even when validation fails) should call those functions directly.
+#[tracing::instrument(skip_all, fields(source_len = source.len()))]
 pub fn compile(source: &str) -> Result<ast::Grammar, CompileError> {
     let grammar = parser::parse(source).map_err(CompileError::Parse)?;
+    tracing::debug!(rules = grammar.items.iter().filter(|i| matches!(i, ast::Item::RuleDef(_))).count(), "parsed grammar");
     validator::validate(&grammar).map_err(CompileError::Validation)?;
+    tracing::debug!("validation passed");
     Ok(grammar)
 }
 

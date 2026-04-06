@@ -8,6 +8,7 @@ use nanachi_meta::ir::{self, IrProgram};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
+#[tracing::instrument(skip_all)]
 fn generate_module_inner(grammar: &Grammar) -> TokenStream {
     let ir = ir::lower(grammar);
     let ir = ir::optimize(ir);
@@ -15,6 +16,7 @@ fn generate_module_inner(grammar: &Grammar) -> TokenStream {
     let state_code = state::generate_state(&ir);
     let rules_code = rules::generate_rules(&ir);
     let entry_code = generate_entry(&ir);
+    tracing::debug!(rules = ir.rules.len(), "code generation complete");
     quote::quote! {
         use nanachi::winnow;
         use nanachi::winnow::prelude::*;

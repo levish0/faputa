@@ -275,8 +275,21 @@ fn lex_escaped_char_literals() {
 
 #[test]
 fn lex_unexpected_character_returns_error_token() {
-    let tokens = lex_results("rule @");
+    let tokens = lex_results("rule $");
     assert_eq!(tokens, vec![Ok(Token::Ident("rule")), Err(())]);
+}
+
+#[test]
+fn lex_at_token() {
+    let tokens = lex_results(r#"rule @ "label""#);
+    assert_eq!(
+        tokens,
+        vec![
+            Ok(Token::Ident("rule")),
+            Ok(Token::At),
+            Ok(Token::StringLit("label")),
+        ]
+    );
 }
 
 #[test]

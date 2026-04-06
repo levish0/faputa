@@ -8,23 +8,31 @@ use std::collections::HashSet;
 use super::{CharRange, IrExpr, IrProgram, IrRule};
 
 /// Run all optimization passes on the program.
+#[tracing::instrument(skip_all, fields(rules = program.rules.len()))]
 pub fn optimize(program: IrProgram) -> IrProgram {
     // Phase 1: Normalize
     let program = single_char_to_charset(program);
     let program = flatten(program);
     let program = merge_charsets(program);
     let program = fuse_literals(program);
+    tracing::debug!("phase 1 (normalize) complete");
     // Phase 2: Inline trivial rules (may expose new optimization opportunities)
     let program = inline_trivial_rules(program);
+    let inlined = program.rules.iter().filter(|r| r.inline).count();
+    tracing::debug!(inlined, "phase 2 (inline) complete");
     // Phase 3: Re-normalize after inlining
     let program = flatten(program);
     let program = merge_charsets(program);
     let program = fuse_literals(program);
+    tracing::debug!("phase 3 (re-normalize) complete");
     // Phase 4: Recognize fused patterns
     let program = recognize_take_while(program);
+    tracing::debug!("phase 4 (pattern recognition) complete");
     // Phase 5: Cleanup
     let program = eliminate_dead_rules(program);
     let program = compute_ref_counts(program);
+    let entry_points = program.rules.iter().filter(|r| r.ref_count == 0).count();
+    tracing::debug!(entry_points, "phase 5 (cleanup) complete");
     program
 }
 

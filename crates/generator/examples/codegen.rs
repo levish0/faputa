@@ -4,8 +4,15 @@
 /// cargo run -p nanachi_generator --example codegen -- examples/simple.nanachi
 /// cargo run -p nanachi_generator --example codegen -- examples/markdown_bold.nanachi
 /// ```
+///
+/// Set `RUST_LOG=debug` to see tracing output from the compilation pipeline.
 
 fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_writer(std::io::stderr)
+        .init();
+
     let path = std::env::args().nth(1).unwrap_or_else(|| {
         eprintln!("Usage: codegen <file.nanachi>");
         std::process::exit(1);

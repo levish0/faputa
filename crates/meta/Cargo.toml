@@ -11,6 +11,7 @@ rust-version.workspace = true
 [dependencies]
 nanachi.workspace = true
 logos.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 proptest = "1.6.0"

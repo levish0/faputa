@@ -439,9 +439,9 @@ rule = { depth_limit(3) { with inside { when depth > 0 { inner } } } }
 
 #[test]
 fn parse_rejects_unexpected_character() {
-    let err = parser::parse(r#"rule = { "x" @ "y" }"#).unwrap_err();
+    let err = parser::parse(r#"rule = { "x" $ "y" }"#).unwrap_err();
     assert_eq!(err.offset, 13);
-    assert!(err.message.contains("unexpected character '@'"));
+    assert!(err.message.contains("unexpected character '$'"));
 }
 
 #[test]
@@ -468,7 +468,7 @@ fn parse_rejects_builtin_as_rule_name() {
 #[test]
 fn parse_invalid_syntax_fixtures() {
     let cases = [
-        ("unexpected_character", 13, "unexpected character '@'"),
+        ("unexpected_character", 13, "unexpected character '$'"),
         ("unterminated_rule", 17, "expected RBrace"),
         ("malformed_repeat", 12, "expected RBrace"),
         ("bare_char_literal", 14, "expected DotDot"),
@@ -486,4 +486,47 @@ fn parse_invalid_syntax_fixtures() {
             "fixture {name}: {err:?} does not contain {message:?}"
         );
     }
+}
+
+// ── Error label (@) tests ──
+
+#[test]
+fn parse_rule_level_error_label() {
+    let grammar = parser::parse(r#"value = @ "JSON value" { "x" | "y" }"#).unwrap();
+    let Item::RuleDef(rule) = &grammar.items[0] else {
+        panic!("expected RuleDef");
+    };
+    assert_eq!(rule.error_label.as_deref(), Some("JSON value"));
+}
+
+#[test]
+fn parse_rule_without_label_has_none() {
+    let grammar = parser::parse(r#"value = { "x" }"#).unwrap();
+    let Item::RuleDef(rule) = &grammar.items[0] else {
+        panic!("expected RuleDef");
+    };
+    assert_eq!(rule.error_label, None);
+}
+
+#[test]
+fn parse_expr_level_label() {
+    let expr = parse_inline_expr(r#"r = { "x" @ "the x" | "y" }"#);
+    match &expr {
+        Expr::Choice(items) => {
+            assert!(matches!(&items[0], Expr::Labeled { label, .. } if label == "the x"));
+            assert!(matches!(&items[1], Expr::StringLit(s) if s == "y"));
+        }
+        other => panic!("expected Choice, got {other:?}"),
+    }
+}
+
+#[test]
+fn parse_label_after_repeat() {
+    let expr = parse_inline_expr(r#"r = { "x"+ @ "one or more x" }"#);
+    assert!(matches!(&expr, Expr::Labeled { label, .. } if label == "one or more x"));
+}
+
+#[test]
+fn parse_error_labels_fixture() {
+    parse_fixture("error_labels");
 }

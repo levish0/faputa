@@ -12,6 +12,7 @@ use crate::ast::{self, BuiltinPredicate, Expr, Grammar, Item, RepeatKind, Statem
 ///
 /// Panics if the grammar contains unresolved rule references
 /// (should not happen after validation).
+#[tracing::instrument(skip_all, fields(rules = grammar.items.iter().filter(|i| matches!(i, Item::RuleDef(_))).count()))]
 pub fn lower(grammar: &Grammar) -> IrProgram {
     // Build name → index map.
     let rule_indices: HashMap<&str, usize> = grammar
