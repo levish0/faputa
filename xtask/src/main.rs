@@ -4,12 +4,7 @@ use std::time::Duration;
 
 /// Crates in dependency order — each crate's dependencies have already been
 /// published by the time it is reached.
-const CRATES: &[&str] = &[
-    "faputa",
-    "faputa_meta",
-    "faputa_generator",
-    "faputa_derive",
-];
+const CRATES: &[&str] = &["faputa", "faputa_meta", "faputa_generator", "faputa_derive"];
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
