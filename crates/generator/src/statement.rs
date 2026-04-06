@@ -3,10 +3,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 
 /// Generate code for guards and emits that precede a rule's expression.
-pub(crate) fn generate_statements(
-    guards: &[GuardCondition],
-    emits: &[String],
-) -> TokenStream {
+pub(crate) fn generate_statements(guards: &[GuardCondition], emits: &[String]) -> TokenStream {
     let guard_stmts: Vec<_> = guards.iter().map(generate_guard).collect();
     let emit_stmts: Vec<_> = emits
         .iter()

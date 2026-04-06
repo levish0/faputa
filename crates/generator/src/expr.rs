@@ -1,68 +1,204 @@
-use nanachi_meta::ast::*;
+use nanachi_meta::ast::{BuiltinPredicate, CompareOp, GuardCondition};
+use nanachi_meta::ir::{Boundary, CharRange, IrExpr, IrProgram};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-/// Generate winnow combinator code for an expression.
-pub(crate) fn generate_expr(expr: &Expr) -> TokenStream {
+/// Generate winnow combinator code for an IR expression.
+pub(crate) fn generate_expr(expr: &IrExpr, ir: &IrProgram) -> TokenStream {
     match expr {
-        Expr::StringLit(s) => {
-            quote! { literal(#s).context(StrContext::Expected(StrContextValue::StringLiteral(#s))) }
+        IrExpr::Literal(s) => {
+            quote! { literal(#s) }
         }
 
-        Expr::CharRange(start, end) => {
-            let desc = format!("'{}'..'{}'", start, end);
-            quote! { one_of(#start..=#end).context(StrContext::Expected(StrContextValue::Description(#desc))) }
+        IrExpr::CharSet(ranges) => generate_one_of(ranges),
+
+        IrExpr::Any => {
+            quote! { any.void() }
         }
 
-        Expr::Ident(name) => {
+        IrExpr::Boundary(boundary) => generate_boundary(boundary),
+
+        IrExpr::RuleRef(idx) => {
+            let name = &ir.rules[*idx].name;
             let fn_name = format_ident!("{}", name);
             quote! { #fn_name }
         }
 
-        Expr::Builtin(builtin) => generate_builtin_expr(builtin),
-
-        Expr::Seq(exprs) => {
-            let items: Vec<_> = exprs.iter().map(generate_expr).collect();
-            quote! { (#(#items),*) }
+        IrExpr::Seq(items) => {
+            let codes: Vec<_> = items.iter().map(|e| generate_expr(e, ir)).collect();
+            quote! { (#(#codes),*) }
         }
 
-        Expr::Choice(exprs) => {
-            let items: Vec<_> = exprs
+        IrExpr::Choice(items) => {
+            let codes: Vec<_> = items
                 .iter()
                 .map(|e| {
-                    let code = generate_expr(e);
+                    let code = generate_expr(e, ir);
                     quote! { (#code).void() }
                 })
                 .collect();
-            generate_alt(items)
+            generate_alt(codes)
         }
 
-        Expr::Repeat { expr, kind } => generate_repeat(expr, kind),
+        IrExpr::Repeat { expr, min, max } => generate_repeat(expr, *min, *max, ir),
 
-        Expr::PosLookahead(inner) => {
-            let inner_code = generate_expr(inner);
+        IrExpr::PosLookahead(inner) => {
+            let inner_code = generate_expr(inner, ir);
             quote! { peek(#inner_code) }
         }
 
-        Expr::NegLookahead(inner) => {
-            let inner_code = generate_expr(inner);
+        IrExpr::NegLookahead(inner) => {
+            let inner_code = generate_expr(inner, ir);
             quote! { not(#inner_code) }
         }
 
-        Expr::Group(inner) => generate_expr(inner),
+        IrExpr::WithFlag { flag, body } => {
+            let body_code = generate_expr(body, ir);
+            quote! {
+                (|input: &mut Input<'_, ParseState>| {
+                    let prev = input.state.get_flag(#flag);
+                    input.state.set_flag(#flag, true);
+                    let result = (#body_code).void().parse_next(input);
+                    input.state.set_flag(#flag, prev);
+                    result
+                })
+            }
+        }
 
-        Expr::With(with_expr) => generate_with_flag(with_expr),
-        Expr::WithIncrement(with_inc) => generate_with_increment(with_inc),
-        Expr::When(when_expr) => generate_when(when_expr),
-        Expr::DepthLimit(dl) => generate_depth_limit(dl),
+        IrExpr::WithCounter {
+            counter,
+            amount,
+            body,
+        } => {
+            let amount = *amount as usize;
+            let body_code = generate_expr(body, ir);
+            quote! {
+                (|input: &mut Input<'_, ParseState>| {
+                    input.state.increment_counter(#counter, #amount);
+                    let result = (#body_code).void().parse_next(input);
+                    input.state.decrement_counter(#counter, #amount);
+                    result
+                })
+            }
+        }
+
+        IrExpr::When { condition, body } => {
+            let condition_check = generate_condition_check(condition);
+            let body_code = generate_expr(body, ir);
+            quote! {
+                (|input: &mut Input<'_, ParseState>| {
+                    if #condition_check {
+                        (#body_code).void().parse_next(input)
+                    } else {
+                        Ok(())
+                    }
+                })
+            }
+        }
+
+        IrExpr::DepthLimit { limit, body } => {
+            let limit = *limit as usize;
+            let body_code = generate_expr(body, ir);
+            quote! {
+                (|input: &mut Input<'_, ParseState>| {
+                    let depth = input.state.get_counter("__recursion_depth");
+                    if depth >= #limit {
+                        return Err(winnow::error::ErrMode::Backtrack(
+                            winnow::error::ContextError::new(),
+                        ));
+                    }
+                    input.state.increment_counter("__recursion_depth", 1);
+                    let result = (#body_code).void().parse_next(input);
+                    input.state.decrement_counter("__recursion_depth", 1);
+                    result
+                })
+            }
+        }
+
+        IrExpr::TakeWhile { ranges, min, max } => generate_take_while(ranges, *min, *max),
     }
 }
 
-fn generate_builtin_expr(builtin: &BuiltinPredicate) -> TokenStream {
-    match builtin {
-        BuiltinPredicate::Soi => {
+/// Generate `one_of(...)` for a set of character ranges.
+fn generate_one_of(ranges: &[CharRange]) -> TokenStream {
+    if ranges.len() == 1 {
+        let r = &ranges[0];
+        if r.start == r.end {
+            let ch = r.start;
+            quote! { one_of(#ch) }
+        } else {
+            let start = r.start;
+            let end = r.end;
+            quote! { one_of(#start..=#end) }
+        }
+    } else if ranges.len() <= 10 {
+        let range_tokens = generate_range_tuple(ranges);
+        quote! { one_of(#range_tokens) }
+    } else {
+        let closure = generate_char_match_closure(ranges);
+        quote! { one_of(#closure) }
+    }
+}
+
+/// Generate `take_while(range, set)` for fused char-class repeats.
+fn generate_take_while(ranges: &[CharRange], min: u32, max: Option<u32>) -> TokenStream {
+    let range_expr = generate_repeat_range(min, max);
+    if ranges.len() <= 10 {
+        let set = generate_range_tuple(ranges);
+        quote! { take_while(#range_expr, #set) }
+    } else {
+        let closure = generate_char_match_closure(ranges);
+        quote! { take_while(#range_expr, #closure) }
+    }
+}
+
+/// Generate a tuple of ranges for winnow's `ContainsToken`.
+/// e.g., `('a'..='z', 'A'..='Z', '_')` or just `'a'..='z'`
+fn generate_range_tuple(ranges: &[CharRange]) -> TokenStream {
+    let parts: Vec<_> = ranges
+        .iter()
+        .map(|r| {
+            if r.start == r.end {
+                let ch = r.start;
+                quote! { #ch }
+            } else {
+                let start = r.start;
+                let end = r.end;
+                quote! { #start..=#end }
+            }
+        })
+        .collect();
+    if parts.len() == 1 {
+        parts.into_iter().next().unwrap()
+    } else {
+        quote! { (#(#parts),*) }
+    }
+}
+
+/// Generate a closure for char matching when ranges exceed tuple limit.
+/// e.g., `|c: char| matches!(c, 'a'..='z' | 'A'..='Z' | '_')`
+fn generate_char_match_closure(ranges: &[CharRange]) -> TokenStream {
+    let patterns: Vec<_> = ranges
+        .iter()
+        .map(|r| {
+            if r.start == r.end {
+                let ch = r.start;
+                quote! { #ch }
+            } else {
+                let start = r.start;
+                let end = r.end;
+                quote! { #start..=#end }
+            }
+        })
+        .collect();
+    quote! { |c: char| matches!(c, #(#patterns)|*) }
+}
+
+fn generate_boundary(boundary: &Boundary) -> TokenStream {
+    match boundary {
+        Boundary::Soi => {
             quote! {
-                winnow::combinator::trace("SOI", |input: &mut Input<'_, ParseState>| {
+                (|input: &mut Input<'_, ParseState>| {
                     if input.current_token_start() == 0 {
                         Ok(())
                     } else {
@@ -73,15 +209,12 @@ fn generate_builtin_expr(builtin: &BuiltinPredicate) -> TokenStream {
                 })
             }
         }
-        BuiltinPredicate::Eoi => {
+        Boundary::Eoi => {
             quote! { eof.void() }
         }
-        BuiltinPredicate::Any => {
-            quote! { any.void() }
-        }
-        BuiltinPredicate::LineStart => {
+        Boundary::LineStart => {
             quote! {
-                winnow::combinator::trace("LINE_START", |input: &mut Input<'_, ParseState>| {
+                (|input: &mut Input<'_, ParseState>| {
                     let pos = input.current_token_start();
                     if input.state.is_at_line_start(pos) {
                         Ok(())
@@ -93,9 +226,9 @@ fn generate_builtin_expr(builtin: &BuiltinPredicate) -> TokenStream {
                 })
             }
         }
-        BuiltinPredicate::LineEnd => {
+        Boundary::LineEnd => {
             quote! {
-                winnow::combinator::trace("LINE_END", |input: &mut Input<'_, ParseState>| {
+                (|input: &mut Input<'_, ParseState>| {
                     let pos = input.current_token_start();
                     if input.state.is_at_line_end(pos) {
                         Ok(())
@@ -110,72 +243,31 @@ fn generate_builtin_expr(builtin: &BuiltinPredicate) -> TokenStream {
     }
 }
 
-fn generate_repeat(expr: &Expr, kind: &RepeatKind) -> TokenStream {
-    let inner = generate_expr(expr);
+fn generate_repeat(expr: &IrExpr, min: u32, max: Option<u32>, ir: &IrProgram) -> TokenStream {
+    let inner = generate_expr(expr, ir);
     let fold = quote! { .fold(|| (), |(), _| ()) };
-    match kind {
-        RepeatKind::ZeroOrMore => quote! { repeat(0.., #inner)#fold },
-        RepeatKind::OneOrMore => quote! { repeat(1.., #inner)#fold },
-        RepeatKind::Optional => quote! { opt(#inner) },
-        RepeatKind::Exact(n) => {
-            let n = *n as usize;
-            quote! { repeat(#n, #inner)#fold }
-        }
-        RepeatKind::AtLeast(n) => {
-            let n = *n as usize;
-            quote! { repeat(#n.., #inner)#fold }
-        }
-        RepeatKind::AtMost(m) => {
-            let m = *m as usize;
-            quote! { repeat(..=#m, #inner)#fold }
-        }
-        RepeatKind::Range(n, m) => {
-            let n = *n as usize;
-            let m = *m as usize;
-            quote! { repeat(#n..=#m, #inner)#fold }
-        }
+    let range = generate_repeat_range(min, max);
+
+    if min == 0 && max == Some(1) {
+        quote! { opt(#inner) }
+    } else {
+        quote! { repeat(#range, #inner)#fold }
     }
 }
 
-fn generate_with_flag(with_expr: &WithExpr) -> TokenStream {
-    let name = &with_expr.flag;
-    let body = generate_expr(&with_expr.body);
-    quote! {
-        winnow::combinator::trace("with_flag", |input: &mut Input<'_, ParseState>| {
-            let prev = input.state.get_flag(#name);
-            input.state.set_flag(#name, true);
-            let result = (#body).void().parse_next(input);
-            input.state.set_flag(#name, prev);
-            result
-        })
-    }
-}
-
-fn generate_with_increment(with_inc: &WithIncrementExpr) -> TokenStream {
-    let name = &with_inc.counter;
-    let amount = with_inc.amount as usize;
-    let body = generate_expr(&with_inc.body);
-    quote! {
-        winnow::combinator::trace("with_increment", |input: &mut Input<'_, ParseState>| {
-            input.state.increment_counter(#name, #amount);
-            let result = (#body).void().parse_next(input);
-            input.state.decrement_counter(#name, #amount);
-            result
-        })
-    }
-}
-
-fn generate_when(when_expr: &WhenExpr) -> TokenStream {
-    let condition_check = generate_condition_check(&when_expr.condition);
-    let body = generate_expr(&when_expr.body);
-    quote! {
-        winnow::combinator::trace("when", |input: &mut Input<'_, ParseState>| {
-            if #condition_check {
-                (#body).void().parse_next(input)
-            } else {
-                Ok(())
-            }
-        })
+/// Generate a winnow range expression for repeat/take_while.
+fn generate_repeat_range(min: u32, max: Option<u32>) -> TokenStream {
+    let min = min as usize;
+    match max {
+        None => quote! { #min.. },
+        Some(m) if m as usize == min => {
+            let m = m as usize;
+            quote! { #m }
+        }
+        Some(m) => {
+            let m = m as usize;
+            quote! { #min..=#m }
+        }
     }
 }
 
@@ -206,25 +298,6 @@ fn generate_condition_check(condition: &GuardCondition) -> TokenStream {
             };
             quote! { input.state.get_counter(#name) #cmp #value }
         }
-    }
-}
-
-fn generate_depth_limit(dl: &DepthLimitExpr) -> TokenStream {
-    let limit = dl.limit as usize;
-    let body = generate_expr(&dl.body);
-    quote! {
-        winnow::combinator::trace("depth_limit", |input: &mut Input<'_, ParseState>| {
-            let depth = input.state.get_counter("__recursion_depth");
-            if depth >= #limit {
-                return Err(winnow::error::ErrMode::Backtrack(
-                    winnow::error::ContextError::new(),
-                ));
-            }
-            input.state.increment_counter("__recursion_depth", 1);
-            let result = (#body).void().parse_next(input);
-            input.state.decrement_counter("__recursion_depth", 1);
-            result
-        })
     }
 }
 

@@ -58,7 +58,6 @@ fn generate_entry(ir: &IrProgram) -> TokenStream {
     let entries: Vec<_> = ir
         .rules
         .iter()
-        .filter(|rule| !rule.inline)
         .map(|rule| {
             let parse_fn = format_ident!("parse_{}", rule.name);
             let rule_fn = format_ident!("{}", rule.name);

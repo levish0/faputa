@@ -455,46 +455,10 @@ fn inline_refs(expr: IrExpr, inline_exprs: &[Option<IrExpr>]) -> IrExpr {
 // Rules that are inlined and never referenced externally can be removed.
 // We keep all non-inlined rules and any rule that is still referenced.
 
-fn eliminate_dead_rules(mut program: IrProgram) -> IrProgram {
-    // Collect all referenced rule indices from non-inlined rules.
-    let mut referenced = HashSet::new();
-    for rule in &program.rules {
-        if !rule.inline {
-            collect_refs(&rule.expr, &mut referenced);
-        }
-    }
-
-    // Also keep all non-inlined rules (they're entry points).
-    let keep: Vec<bool> = program
-        .rules
-        .iter()
-        .enumerate()
-        .map(|(i, rule)| !rule.inline || referenced.contains(&i))
-        .collect();
-
-    // Build old→new index mapping.
-    let mut index_map: Vec<Option<usize>> = vec![None; program.rules.len()];
-    let mut new_idx = 0;
-    for (old_idx, &kept) in keep.iter().enumerate() {
-        if kept {
-            index_map[old_idx] = Some(new_idx);
-            new_idx += 1;
-        }
-    }
-
-    // Filter and reindex.
-    let new_rules: Vec<IrRule> = program
-        .rules
-        .into_iter()
-        .zip(keep.iter())
-        .filter(|(_, kept)| **kept)
-        .map(|(mut rule, _)| {
-            rule.expr = reindex_refs(rule.expr, &index_map);
-            rule
-        })
-        .collect();
-
-    program.rules = new_rules;
+fn eliminate_dead_rules(program: IrProgram) -> IrProgram {
+    // All user-defined rules are kept because each gets a `parse_<name>` entry point.
+    // The `inline` flag only means the body was substituted into callers — the rule
+    // itself must remain for external API access.
     program
 }
 
@@ -518,57 +482,6 @@ fn collect_refs(expr: &IrExpr, refs: &mut HashSet<usize>) {
             collect_refs(expr, refs);
         }
         _ => {}
-    }
-}
-
-fn reindex_refs(expr: IrExpr, index_map: &[Option<usize>]) -> IrExpr {
-    match expr {
-        IrExpr::RuleRef(idx) => IrExpr::RuleRef(index_map[idx].expect("dangling rule ref")),
-        IrExpr::Seq(items) => IrExpr::Seq(
-            items
-                .into_iter()
-                .map(|e| reindex_refs(e, index_map))
-                .collect(),
-        ),
-        IrExpr::Choice(items) => IrExpr::Choice(
-            items
-                .into_iter()
-                .map(|e| reindex_refs(e, index_map))
-                .collect(),
-        ),
-        IrExpr::Repeat { expr, min, max } => IrExpr::Repeat {
-            expr: Box::new(reindex_refs(*expr, index_map)),
-            min,
-            max,
-        },
-        IrExpr::PosLookahead(inner) => {
-            IrExpr::PosLookahead(Box::new(reindex_refs(*inner, index_map)))
-        }
-        IrExpr::NegLookahead(inner) => {
-            IrExpr::NegLookahead(Box::new(reindex_refs(*inner, index_map)))
-        }
-        IrExpr::WithFlag { flag, body } => IrExpr::WithFlag {
-            flag,
-            body: Box::new(reindex_refs(*body, index_map)),
-        },
-        IrExpr::WithCounter {
-            counter,
-            amount,
-            body,
-        } => IrExpr::WithCounter {
-            counter,
-            amount,
-            body: Box::new(reindex_refs(*body, index_map)),
-        },
-        IrExpr::When { condition, body } => IrExpr::When {
-            condition,
-            body: Box::new(reindex_refs(*body, index_map)),
-        },
-        IrExpr::DepthLimit { limit, body } => IrExpr::DepthLimit {
-            limit,
-            body: Box::new(reindex_refs(*body, index_map)),
-        },
-        other => other,
     }
 }
 

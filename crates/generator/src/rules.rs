@@ -10,7 +10,6 @@ pub(crate) fn generate_rules(ir: &IrProgram) -> TokenStream {
     let fns: Vec<_> = ir
         .rules
         .iter()
-        .filter(|rule| !rule.inline)
         .map(|rule| generate_rule(rule, ir))
         .collect();
 

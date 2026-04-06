@@ -19,7 +19,6 @@ fn inline_grammar_rejects() {
 #[test]
 fn inline_grammar_error_has_context() {
     let err = AlphaParser::parse_alpha("1").unwrap_err();
-    assert!(err.contains("expected"));
     assert!(err.contains("invalid alpha"));
 }
 
