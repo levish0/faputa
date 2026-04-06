@@ -128,26 +128,26 @@ expected equals sign
 
 ## Examples
 
-| Example | Description | Run |
-|---------|-------------|-----|
-| `parse_demo` | Assignment parser | `cargo run -p parse_demo -- file.txt` |
-| `parse_json` | Full RFC 8259 JSON | `cargo run -p parse_json -- file.json` |
+| Example        | Description           | Run                                     |
+|----------------|-----------------------|-----------------------------------------|
+| `parse_demo`   | Assignment parser     | `cargo run -p parse_demo -- file.txt`   |
+| `parse_json`   | Full RFC 8259 JSON    | `cargo run -p parse_json -- file.json`  |
 | `error_labels` | Custom error messages | `cargo run -p error_labels -- file.txt` |
 
 ## Crate Structure
 
-| Crate | Purpose |
-|-------|---------|
-| `nanachi` | Runtime (re-exports winnow types, `LineIndex`, `State` trait) |
-| `nanachi_meta` | Lexer → Parser → Validator → IR lowering → Optimizer |
-| `nanachi_generator` | IR → Rust/winnow codegen |
-| `nanachi_derive` | `#[derive(Parser)]` proc macro |
-| `nanachi_vm` | Bytecode VM interpreter (WIP) |
+| Crate               | Purpose                                                       |
+|---------------------|---------------------------------------------------------------|
+| `nanachi`           | Runtime (re-exports winnow types, `LineIndex`, `State` trait) |
+| `nanachi_meta`      | Lexer → Parser → Validator → IR lowering → Optimizer          |
+| `nanachi_generator` | IR → Rust/winnow codegen                                      |
+| `nanachi_derive`    | `#[derive(Parser)]` proc macro                                |
+| `nanachi_vm`        | Bytecode VM interpreter (WIP)                                 |
 
 ## Feature Flags
 
-| Feature | Effect |
-|---------|--------|
+| Feature | Effect                                                                         |
+|---------|--------------------------------------------------------------------------------|
 | `debug` | Enables winnow's `trace()` combinator — prints parse tree to stderr at runtime |
 
 ```toml
