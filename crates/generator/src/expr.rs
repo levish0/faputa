@@ -349,7 +349,11 @@ fn describe_ranges(ranges: &[CharRange]) -> String {
             if r.start == r.end {
                 format!("'{}'", r.start.escape_default())
             } else {
-                format!("'{}'..'{}'", r.start.escape_default(), r.end.escape_default())
+                format!(
+                    "'{}'..'{}'",
+                    r.start.escape_default(),
+                    r.end.escape_default()
+                )
             }
         })
         .collect();
