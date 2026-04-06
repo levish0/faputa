@@ -469,7 +469,7 @@ fn parse_rejects_builtin_as_rule_name() {
 fn parse_invalid_syntax_fixtures() {
     let cases = [
         ("unexpected_character", 13, "unexpected character '$'"),
-        ("unterminated_rule", 17, "expected RBrace"),
+        ("unterminated_rule", 18, "expected RBrace"),
         ("malformed_repeat", 12, "expected RBrace"),
         ("bare_char_literal", 14, "expected DotDot"),
         ("builtin_rule_name", 0, "expected 'let' or rule name"),
