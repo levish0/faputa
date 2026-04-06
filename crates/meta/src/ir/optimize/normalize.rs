@@ -64,6 +64,29 @@ fn single_char_to_charset_expr(expr: IrExpr) -> IrExpr {
             limit,
             body: Box::new(single_char_to_charset_expr(*body)),
         },
+        IrExpr::Dispatch(arms) => IrExpr::Dispatch(
+            arms.into_iter()
+                .map(|arm| crate::ir::DispatchArm {
+                    ranges: arm.ranges,
+                    expr: Box::new(single_char_to_charset_expr(*arm.expr)),
+                })
+                .collect(),
+        ),
+        IrExpr::Scan {
+            plain_ranges,
+            specials,
+            min,
+        } => IrExpr::Scan {
+            plain_ranges,
+            specials: specials
+                .into_iter()
+                .map(|arm| crate::ir::DispatchArm {
+                    ranges: arm.ranges,
+                    expr: Box::new(single_char_to_charset_expr(*arm.expr)),
+                })
+                .collect(),
+            min,
+        },
         IrExpr::Labeled { expr, label } => IrExpr::Labeled {
             expr: Box::new(single_char_to_charset_expr(*expr)),
             label,
@@ -142,6 +165,29 @@ fn flatten_expr(expr: IrExpr) -> IrExpr {
         IrExpr::DepthLimit { limit, body } => IrExpr::DepthLimit {
             limit,
             body: Box::new(flatten_expr(*body)),
+        },
+        IrExpr::Dispatch(arms) => IrExpr::Dispatch(
+            arms.into_iter()
+                .map(|arm| crate::ir::DispatchArm {
+                    ranges: arm.ranges,
+                    expr: Box::new(flatten_expr(*arm.expr)),
+                })
+                .collect(),
+        ),
+        IrExpr::Scan {
+            plain_ranges,
+            specials,
+            min,
+        } => IrExpr::Scan {
+            plain_ranges,
+            specials: specials
+                .into_iter()
+                .map(|arm| crate::ir::DispatchArm {
+                    ranges: arm.ranges,
+                    expr: Box::new(flatten_expr(*arm.expr)),
+                })
+                .collect(),
+            min,
         },
         IrExpr::Labeled { expr, label } => IrExpr::Labeled {
             expr: Box::new(flatten_expr(*expr)),
@@ -222,6 +268,29 @@ fn merge_charsets_expr(expr: IrExpr) -> IrExpr {
             limit,
             body: Box::new(merge_charsets_expr(*body)),
         },
+        IrExpr::Dispatch(arms) => IrExpr::Dispatch(
+            arms.into_iter()
+                .map(|arm| crate::ir::DispatchArm {
+                    ranges: arm.ranges,
+                    expr: Box::new(merge_charsets_expr(*arm.expr)),
+                })
+                .collect(),
+        ),
+        IrExpr::Scan {
+            plain_ranges,
+            specials,
+            min,
+        } => IrExpr::Scan {
+            plain_ranges,
+            specials: specials
+                .into_iter()
+                .map(|arm| crate::ir::DispatchArm {
+                    ranges: arm.ranges,
+                    expr: Box::new(merge_charsets_expr(*arm.expr)),
+                })
+                .collect(),
+            min,
+        },
         IrExpr::Labeled { expr, label } => IrExpr::Labeled {
             expr: Box::new(merge_charsets_expr(*expr)),
             label,
@@ -292,6 +361,29 @@ fn fuse_literals_expr(expr: IrExpr) -> IrExpr {
         IrExpr::DepthLimit { limit, body } => IrExpr::DepthLimit {
             limit,
             body: Box::new(fuse_literals_expr(*body)),
+        },
+        IrExpr::Dispatch(arms) => IrExpr::Dispatch(
+            arms.into_iter()
+                .map(|arm| crate::ir::DispatchArm {
+                    ranges: arm.ranges,
+                    expr: Box::new(fuse_literals_expr(*arm.expr)),
+                })
+                .collect(),
+        ),
+        IrExpr::Scan {
+            plain_ranges,
+            specials,
+            min,
+        } => IrExpr::Scan {
+            plain_ranges,
+            specials: specials
+                .into_iter()
+                .map(|arm| crate::ir::DispatchArm {
+                    ranges: arm.ranges,
+                    expr: Box::new(fuse_literals_expr(*arm.expr)),
+                })
+                .collect(),
+            min,
         },
         IrExpr::Labeled { expr, label } => IrExpr::Labeled {
             expr: Box::new(fuse_literals_expr(*expr)),

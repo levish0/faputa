@@ -47,6 +47,7 @@ fn is_trivial(rule: &IrRule) -> bool {
             | IrExpr::Any
             | IrExpr::Boundary(_)
             | IrExpr::TakeWhile { .. }
+            | IrExpr::Scan { .. }
     )
 }
 
@@ -69,6 +70,14 @@ fn inline_refs(expr: IrExpr, inline_exprs: &[Option<IrExpr>]) -> IrExpr {
             items
                 .into_iter()
                 .map(|e| inline_refs(e, inline_exprs))
+                .collect(),
+        ),
+        IrExpr::Dispatch(arms) => IrExpr::Dispatch(
+            arms.into_iter()
+                .map(|arm| crate::ir::DispatchArm {
+                    ranges: arm.ranges,
+                    expr: Box::new(inline_refs(*arm.expr, inline_exprs)),
+                })
                 .collect(),
         ),
         IrExpr::Repeat { expr, min, max } => IrExpr::Repeat {
@@ -103,6 +112,21 @@ fn inline_refs(expr: IrExpr, inline_exprs: &[Option<IrExpr>]) -> IrExpr {
             limit,
             body: Box::new(inline_refs(*body, inline_exprs)),
         },
+        IrExpr::Scan {
+            plain_ranges,
+            specials,
+            min,
+        } => IrExpr::Scan {
+            plain_ranges,
+            specials: specials
+                .into_iter()
+                .map(|arm| crate::ir::DispatchArm {
+                    ranges: arm.ranges,
+                    expr: Box::new(inline_refs(*arm.expr, inline_exprs)),
+                })
+                .collect(),
+            min,
+        },
         IrExpr::Labeled { expr, label } => IrExpr::Labeled {
             expr: Box::new(inline_refs(*expr, inline_exprs)),
             label,
@@ -125,6 +149,11 @@ fn collect_refs(expr: &IrExpr, refs: &mut HashSet<usize>) {
                 collect_refs(item, refs);
             }
         }
+        IrExpr::Dispatch(arms) => {
+            for arm in arms {
+                collect_refs(&arm.expr, refs);
+            }
+        }
         IrExpr::Repeat { expr, .. }
         | IrExpr::PosLookahead(expr)
         | IrExpr::NegLookahead(expr)
@@ -134,6 +163,11 @@ fn collect_refs(expr: &IrExpr, refs: &mut HashSet<usize>) {
         | IrExpr::DepthLimit { body: expr, .. }
         | IrExpr::Labeled { expr, .. } => {
             collect_refs(expr, refs);
+        }
+        IrExpr::Scan { specials, .. } => {
+            for arm in specials {
+                collect_refs(&arm.expr, refs);
+            }
         }
         _ => {}
     }
@@ -162,6 +196,11 @@ fn count_refs(expr: &IrExpr, counts: &mut [usize]) {
                 count_refs(item, counts);
             }
         }
+        IrExpr::Dispatch(arms) => {
+            for arm in arms {
+                count_refs(&arm.expr, counts);
+            }
+        }
         IrExpr::Repeat { expr, .. }
         | IrExpr::PosLookahead(expr)
         | IrExpr::NegLookahead(expr)
@@ -171,6 +210,11 @@ fn count_refs(expr: &IrExpr, counts: &mut [usize]) {
         | IrExpr::DepthLimit { body: expr, .. }
         | IrExpr::Labeled { expr, .. } => {
             count_refs(expr, counts);
+        }
+        IrExpr::Scan { specials, .. } => {
+            for arm in specials {
+                count_refs(&arm.expr, counts);
+            }
         }
         _ => {}
     }

@@ -2,6 +2,7 @@ mod dispatch;
 mod inline;
 mod normalize;
 mod patterns;
+mod scan;
 
 #[cfg(test)]
 mod tests;
@@ -37,6 +38,7 @@ pub fn optimize(program: IrProgram) -> IrProgram {
     let program = inline::eliminate_dead_rules(program);
     let program = inline::compute_ref_counts(program);
     let program = dispatch::recognize_dispatch(program);
+    let program = scan::recognize_scan_repeat(program);
     let entry_points = program.rules.iter().filter(|r| r.ref_count == 0).count();
     tracing::debug!(entry_points, "phase 5 (cleanup) complete");
     program

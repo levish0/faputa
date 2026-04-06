@@ -75,6 +75,12 @@ pub(crate) fn generate_expr(expr: &IrExpr, ir: &IrProgram) -> TokenStream {
 
         IrExpr::Repeat { expr, min, max } => generate_repeat(expr, *min, *max, ir),
 
+        IrExpr::Scan {
+            plain_ranges,
+            specials,
+            min,
+        } => generate_scan(plain_ranges, specials, *min, ir),
+
         IrExpr::PosLookahead(inner) => {
             let inner_code = generate_expr(inner, ir);
             quote! { peek(#inner_code) }
@@ -321,6 +327,114 @@ fn generate_dispatch(arms: &[DispatchArm], ir: &IrProgram) -> TokenStream {
     }
 }
 
+fn generate_scan(
+    plain_ranges: &[CharRange],
+    specials: &[DispatchArm],
+    min: u32,
+    ir: &IrProgram,
+) -> TokenStream {
+    let bulk = generate_scan_bulk_parser(plain_ranges);
+    let arms: Vec<_> = specials
+        .iter()
+        .map(|arm| {
+            let patterns = generate_match_patterns(&arm.ranges);
+            let body = generate_expr(&arm.expr, ir);
+            quote! {
+                Some(ch) if matches!(ch, #(#patterns)|*) => {
+                    (#body).void().parse_next(input)?;
+                }
+            }
+        })
+        .collect();
+
+    match min {
+        0 => quote! {
+            (|input: &mut Input<'i, ParseState<'i>>| -> ModalResult<()> {
+                loop {
+                    let chunk = (#bulk).parse_next(input)?;
+                    if !chunk.is_empty() {
+                        continue;
+                    }
+                    match input.input.chars().next() {
+                        #(#arms)*
+                        _ => return Ok(()),
+                    }
+                }
+            })
+        },
+        1 => quote! {
+            (|input: &mut Input<'i, ParseState<'i>>| -> ModalResult<()> {
+                let mut matched_any = false;
+                loop {
+                    let chunk = (#bulk).parse_next(input)?;
+                    if !chunk.is_empty() {
+                        matched_any = true;
+                        continue;
+                    }
+                    match input.input.chars().next() {
+                        #(#arms)*
+                        _ => {
+                            return if matched_any {
+                                Ok(())
+                            } else {
+                                Err(winnow::error::ErrMode::Backtrack(
+                                    winnow::error::ContextError::new(),
+                                ))
+                            };
+                        }
+                    }
+                    matched_any = true;
+                }
+            })
+        },
+        _ => {
+            let min = min as usize;
+            quote! {
+                (|input: &mut Input<'i, ParseState<'i>>| -> ModalResult<()> {
+                    let mut matched = 0usize;
+                    loop {
+                        let chunk = (#bulk).parse_next(input)?;
+                        if !chunk.is_empty() {
+                            matched += chunk.chars().count();
+                            continue;
+                        }
+                        match input.input.chars().next() {
+                            #(#arms)*
+                            _ => {
+                                return if matched >= #min {
+                                    Ok(())
+                                } else {
+                                    Err(winnow::error::ErrMode::Backtrack(
+                                        winnow::error::ContextError::new(),
+                                    ))
+                                };
+                            }
+                        }
+                        matched += 1;
+                    }
+                })
+            }
+        }
+    }
+}
+
+fn generate_scan_bulk_parser(plain_ranges: &[CharRange]) -> TokenStream {
+    let stop_ranges = invert_ranges(plain_ranges);
+    if !stop_ranges.is_empty() && stop_ranges.len() <= 10 {
+        let set = generate_range_tuple(&stop_ranges);
+        quote! { take_till(0.., #set) }
+    } else {
+        let range_expr = generate_repeat_range(0, None);
+        if plain_ranges.len() <= 10 {
+            let set = generate_range_tuple(plain_ranges);
+            quote! { take_while(#range_expr, #set) }
+        } else {
+            let closure = generate_char_match_closure(plain_ranges);
+            quote! { take_while(#range_expr, #closure) }
+        }
+    }
+}
+
 /// Generate a winnow range expression for repeat/take_while.
 fn generate_repeat_range(min: u32, max: Option<u32>) -> TokenStream {
     let min = min as usize;
@@ -335,6 +449,58 @@ fn generate_repeat_range(min: u32, max: Option<u32>) -> TokenStream {
             quote! { #min..=#m }
         }
     }
+}
+
+fn invert_ranges(ranges: &[CharRange]) -> Vec<CharRange> {
+    if ranges.is_empty() {
+        return vec![CharRange::new(char::MIN, char::MAX)];
+    }
+
+    let mut result = Vec::new();
+    let mut cursor = char::MIN;
+
+    for range in ranges {
+        if cursor < range.start {
+            if let Some(end) = prev_scalar(range.start) {
+                if cursor <= end {
+                    result.push(CharRange::new(cursor, end));
+                }
+            }
+        }
+
+        cursor = match next_scalar(range.end) {
+            Some(next) => next,
+            None => return result,
+        };
+    }
+
+    if cursor <= char::MAX {
+        result.push(CharRange::new(cursor, char::MAX));
+    }
+
+    result
+}
+
+fn next_scalar(ch: char) -> Option<char> {
+    let mut value = ch as u32 + 1;
+    while value <= char::MAX as u32 {
+        if let Some(next) = char::from_u32(value) {
+            return Some(next);
+        }
+        value += 1;
+    }
+    None
+}
+
+fn prev_scalar(ch: char) -> Option<char> {
+    let mut value = ch as u32;
+    while value > 0 {
+        value -= 1;
+        if let Some(prev) = char::from_u32(value) {
+            return Some(prev);
+        }
+    }
+    None
 }
 
 fn generate_condition_check(condition: &GuardCondition) -> TokenStream {

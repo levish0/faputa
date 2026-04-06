@@ -35,6 +35,14 @@ fn recognize_take_while_expr(expr: IrExpr) -> IrExpr {
         IrExpr::Choice(items) => {
             IrExpr::Choice(items.into_iter().map(recognize_take_while_expr).collect())
         }
+        IrExpr::Dispatch(arms) => IrExpr::Dispatch(
+            arms.into_iter()
+                .map(|arm| crate::ir::DispatchArm {
+                    ranges: arm.ranges,
+                    expr: Box::new(recognize_take_while_expr(*arm.expr)),
+                })
+                .collect(),
+        ),
         IrExpr::PosLookahead(inner) => {
             IrExpr::PosLookahead(Box::new(recognize_take_while_expr(*inner)))
         }
@@ -61,6 +69,21 @@ fn recognize_take_while_expr(expr: IrExpr) -> IrExpr {
         IrExpr::DepthLimit { limit, body } => IrExpr::DepthLimit {
             limit,
             body: Box::new(recognize_take_while_expr(*body)),
+        },
+        IrExpr::Scan {
+            plain_ranges,
+            specials,
+            min,
+        } => IrExpr::Scan {
+            plain_ranges,
+            specials: specials
+                .into_iter()
+                .map(|arm| crate::ir::DispatchArm {
+                    ranges: arm.ranges,
+                    expr: Box::new(recognize_take_while_expr(*arm.expr)),
+                })
+                .collect(),
+            min,
         },
         IrExpr::Labeled { expr, label } => IrExpr::Labeled {
             expr: Box::new(recognize_take_while_expr(*expr)),

@@ -84,6 +84,17 @@ pub enum IrExpr {
         max: Option<u32>,
     },
 
+    /// Repetition lowered to a chunked scanner plus special-case dispatch.
+    ///
+    /// This is used for patterns like string/comment bodies where most input
+    /// is "ordinary" single-char consumption, with a few prefixed branches
+    /// (escapes, sentinels, etc.) that require full parsing.
+    Scan {
+        plain_ranges: Vec<CharRange>,
+        specials: Vec<DispatchArm>,
+        min: u32,
+    },
+
     /// User-defined error label: `expr @ "custom message"`.
     ///
     /// Prevents optimization passes from merging through this boundary,
