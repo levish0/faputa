@@ -5,7 +5,8 @@
       "Bash(cargo clippy:*)",
       "Bash(cargo fmt:*)",
       "Bash(cargo test:*)",
-      "Bash(cargo build:*)"
+      "Bash(cargo build:*)",
+      "Bash(cat D:/Github/faputa/fixtures/*.faputa)"
     ]
   }
 }
