@@ -4,11 +4,11 @@ mod normalize;
 #[cfg(test)]
 mod tests;
 
-use super::{CharRange, IrProgram};
+use super::{CharRange, HirProgram};
 
 /// Run all optimization passes on the program.
 #[tracing::instrument(skip_all, fields(rules = program.rules.len()))]
-pub fn optimize(program: IrProgram) -> IrProgram {
+pub fn optimize(program: HirProgram) -> HirProgram {
     // Phase 1: Normalize
     let program = normalize::single_char_to_charset(program);
     let program = normalize::flatten(program);

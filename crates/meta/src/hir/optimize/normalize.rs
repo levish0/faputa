@@ -1,6 +1,6 @@
-use crate::ir::{CharRange, IrExpr, IrProgram};
+use crate::hir::{CharRange, HirExpr, HirProgram};
 
-pub(super) fn single_char_to_charset(mut program: IrProgram) -> IrProgram {
+pub(super) fn single_char_to_charset(mut program: HirProgram) -> HirProgram {
     for rule in &mut program.rules {
         let before = rule.expr.clone();
         rule.expr = single_char_to_charset_expr(rule.expr.clone());
@@ -11,83 +11,60 @@ pub(super) fn single_char_to_charset(mut program: IrProgram) -> IrProgram {
     program
 }
 
-fn single_char_to_charset_expr(expr: IrExpr) -> IrExpr {
+fn single_char_to_charset_expr(expr: HirExpr) -> HirExpr {
     match expr {
-        IrExpr::Choice(items) => {
+        HirExpr::Choice(items) => {
             let items: Vec<_> = items
                 .into_iter()
                 .map(|item| {
                     let item = single_char_to_charset_expr(item);
-                    if let IrExpr::Literal(ref s) = item {
+                    if let HirExpr::Literal(ref s) = item {
                         let mut chars = s.chars();
                         if let (Some(ch), None) = (chars.next(), chars.next()) {
-                            return IrExpr::CharSet(vec![CharRange::single(ch)]);
+                            return HirExpr::CharSet(vec![CharRange::single(ch)]);
                         }
                     }
                     item
                 })
                 .collect();
-            IrExpr::Choice(items)
+            HirExpr::Choice(items)
         }
-        IrExpr::Seq(items) => {
-            IrExpr::Seq(items.into_iter().map(single_char_to_charset_expr).collect())
+        HirExpr::Seq(items) => {
+            HirExpr::Seq(items.into_iter().map(single_char_to_charset_expr).collect())
         }
-        IrExpr::Repeat { expr, min, max } => IrExpr::Repeat {
+        HirExpr::Repeat { expr, min, max } => HirExpr::Repeat {
             expr: Box::new(single_char_to_charset_expr(*expr)),
             min,
             max,
         },
-        IrExpr::PosLookahead(inner) => {
-            IrExpr::PosLookahead(Box::new(single_char_to_charset_expr(*inner)))
+        HirExpr::PosLookahead(inner) => {
+            HirExpr::PosLookahead(Box::new(single_char_to_charset_expr(*inner)))
         }
-        IrExpr::NegLookahead(inner) => {
-            IrExpr::NegLookahead(Box::new(single_char_to_charset_expr(*inner)))
+        HirExpr::NegLookahead(inner) => {
+            HirExpr::NegLookahead(Box::new(single_char_to_charset_expr(*inner)))
         }
-        IrExpr::WithFlag { flag, body } => IrExpr::WithFlag {
+        HirExpr::WithFlag { flag, body } => HirExpr::WithFlag {
             flag,
             body: Box::new(single_char_to_charset_expr(*body)),
         },
-        IrExpr::WithCounter {
+        HirExpr::WithCounter {
             counter,
             amount,
             body,
-        } => IrExpr::WithCounter {
+        } => HirExpr::WithCounter {
             counter,
             amount,
             body: Box::new(single_char_to_charset_expr(*body)),
         },
-        IrExpr::When { condition, body } => IrExpr::When {
+        HirExpr::When { condition, body } => HirExpr::When {
             condition,
             body: Box::new(single_char_to_charset_expr(*body)),
         },
-        IrExpr::DepthLimit { limit, body } => IrExpr::DepthLimit {
+        HirExpr::DepthLimit { limit, body } => HirExpr::DepthLimit {
             limit,
             body: Box::new(single_char_to_charset_expr(*body)),
         },
-        IrExpr::Dispatch(arms) => IrExpr::Dispatch(
-            arms.into_iter()
-                .map(|arm| crate::ir::DispatchArm {
-                    ranges: arm.ranges,
-                    expr: Box::new(single_char_to_charset_expr(*arm.expr)),
-                })
-                .collect(),
-        ),
-        IrExpr::Scan {
-            plain_ranges,
-            specials,
-            min,
-        } => IrExpr::Scan {
-            plain_ranges,
-            specials: specials
-                .into_iter()
-                .map(|arm| crate::ir::DispatchArm {
-                    ranges: arm.ranges,
-                    expr: Box::new(single_char_to_charset_expr(*arm.expr)),
-                })
-                .collect(),
-            min,
-        },
-        IrExpr::Labeled { expr, label } => IrExpr::Labeled {
+        HirExpr::Labeled { expr, label } => HirExpr::Labeled {
             expr: Box::new(single_char_to_charset_expr(*expr)),
             label,
         },
@@ -95,7 +72,7 @@ fn single_char_to_charset_expr(expr: IrExpr) -> IrExpr {
     }
 }
 
-pub(super) fn flatten(mut program: IrProgram) -> IrProgram {
+pub(super) fn flatten(mut program: HirProgram) -> HirProgram {
     for rule in &mut program.rules {
         let before = rule.expr.clone();
         rule.expr = flatten_expr(rule.expr.clone());
@@ -106,90 +83,67 @@ pub(super) fn flatten(mut program: IrProgram) -> IrProgram {
     program
 }
 
-fn flatten_expr(expr: IrExpr) -> IrExpr {
+fn flatten_expr(expr: HirExpr) -> HirExpr {
     match expr {
-        IrExpr::Seq(items) => {
+        HirExpr::Seq(items) => {
             let mut flat = Vec::new();
             for item in items {
                 let item = flatten_expr(item);
                 match item {
-                    IrExpr::Seq(inner) => flat.extend(inner),
+                    HirExpr::Seq(inner) => flat.extend(inner),
                     other => flat.push(other),
                 }
             }
             if flat.len() == 1 {
                 flat.into_iter().next().unwrap()
             } else {
-                IrExpr::Seq(flat)
+                HirExpr::Seq(flat)
             }
         }
-        IrExpr::Choice(items) => {
+        HirExpr::Choice(items) => {
             let mut flat = Vec::new();
             for item in items {
                 let item = flatten_expr(item);
                 match item {
-                    IrExpr::Choice(inner) => flat.extend(inner),
+                    HirExpr::Choice(inner) => flat.extend(inner),
                     other => flat.push(other),
                 }
             }
             if flat.len() == 1 {
                 flat.into_iter().next().unwrap()
             } else {
-                IrExpr::Choice(flat)
+                HirExpr::Choice(flat)
             }
         }
-        IrExpr::Repeat { expr, min, max } => IrExpr::Repeat {
+        HirExpr::Repeat { expr, min, max } => HirExpr::Repeat {
             expr: Box::new(flatten_expr(*expr)),
             min,
             max,
         },
-        IrExpr::PosLookahead(inner) => IrExpr::PosLookahead(Box::new(flatten_expr(*inner))),
-        IrExpr::NegLookahead(inner) => IrExpr::NegLookahead(Box::new(flatten_expr(*inner))),
-        IrExpr::WithFlag { flag, body } => IrExpr::WithFlag {
+        HirExpr::PosLookahead(inner) => HirExpr::PosLookahead(Box::new(flatten_expr(*inner))),
+        HirExpr::NegLookahead(inner) => HirExpr::NegLookahead(Box::new(flatten_expr(*inner))),
+        HirExpr::WithFlag { flag, body } => HirExpr::WithFlag {
             flag,
             body: Box::new(flatten_expr(*body)),
         },
-        IrExpr::WithCounter {
+        HirExpr::WithCounter {
             counter,
             amount,
             body,
-        } => IrExpr::WithCounter {
+        } => HirExpr::WithCounter {
             counter,
             amount,
             body: Box::new(flatten_expr(*body)),
         },
-        IrExpr::When { condition, body } => IrExpr::When {
+        HirExpr::When { condition, body } => HirExpr::When {
             condition,
             body: Box::new(flatten_expr(*body)),
         },
-        IrExpr::DepthLimit { limit, body } => IrExpr::DepthLimit {
+        HirExpr::DepthLimit { limit, body } => HirExpr::DepthLimit {
             limit,
             body: Box::new(flatten_expr(*body)),
         },
-        IrExpr::Dispatch(arms) => IrExpr::Dispatch(
-            arms.into_iter()
-                .map(|arm| crate::ir::DispatchArm {
-                    ranges: arm.ranges,
-                    expr: Box::new(flatten_expr(*arm.expr)),
-                })
-                .collect(),
-        ),
-        IrExpr::Scan {
-            plain_ranges,
-            specials,
-            min,
-        } => IrExpr::Scan {
-            plain_ranges,
-            specials: specials
-                .into_iter()
-                .map(|arm| crate::ir::DispatchArm {
-                    ranges: arm.ranges,
-                    expr: Box::new(flatten_expr(*arm.expr)),
-                })
-                .collect(),
-            min,
-        },
-        IrExpr::Labeled { expr, label } => IrExpr::Labeled {
+        HirExpr::Labeled { expr, label } => HirExpr::Labeled {
             expr: Box::new(flatten_expr(*expr)),
             label,
         },
@@ -197,7 +151,7 @@ fn flatten_expr(expr: IrExpr) -> IrExpr {
     }
 }
 
-pub(super) fn merge_charsets(mut program: IrProgram) -> IrProgram {
+pub(super) fn merge_charsets(mut program: HirProgram) -> HirProgram {
     for rule in &mut program.rules {
         let before = rule.expr.clone();
         rule.expr = merge_charsets_expr(rule.expr.clone());
@@ -208,17 +162,17 @@ pub(super) fn merge_charsets(mut program: IrProgram) -> IrProgram {
     program
 }
 
-fn merge_charsets_expr(expr: IrExpr) -> IrExpr {
+fn merge_charsets_expr(expr: HirExpr) -> HirExpr {
     match expr {
-        IrExpr::Choice(items) => {
+        HirExpr::Choice(items) => {
             let items: Vec<_> = items.into_iter().map(merge_charsets_expr).collect();
             let mut merged_ranges: Vec<CharRange> = Vec::new();
-            let mut other: Vec<IrExpr> = Vec::new();
+            let mut other: Vec<HirExpr> = Vec::new();
 
             for item in items {
                 match item {
-                    IrExpr::CharSet(ranges) => merged_ranges.extend(ranges),
-                    IrExpr::Any => other.push(IrExpr::Any),
+                    HirExpr::CharSet(ranges) => merged_ranges.extend(ranges),
+                    HirExpr::Any => other.push(HirExpr::Any),
                     _ => other.push(item),
                 }
             }
@@ -226,72 +180,53 @@ fn merge_charsets_expr(expr: IrExpr) -> IrExpr {
             if !merged_ranges.is_empty() {
                 merged_ranges.sort();
                 merged_ranges = super::coalesce_ranges(merged_ranges);
-                let mut result = vec![IrExpr::CharSet(merged_ranges)];
+                let mut result = vec![HirExpr::CharSet(merged_ranges)];
                 result.extend(other);
                 if result.len() == 1 {
                     result.into_iter().next().unwrap()
                 } else {
-                    IrExpr::Choice(result)
+                    HirExpr::Choice(result)
                 }
             } else if other.len() == 1 {
                 other.into_iter().next().unwrap()
             } else {
-                IrExpr::Choice(other)
+                HirExpr::Choice(other)
             }
         }
-        IrExpr::Seq(items) => IrExpr::Seq(items.into_iter().map(merge_charsets_expr).collect()),
-        IrExpr::Repeat { expr, min, max } => IrExpr::Repeat {
+        HirExpr::Seq(items) => HirExpr::Seq(items.into_iter().map(merge_charsets_expr).collect()),
+        HirExpr::Repeat { expr, min, max } => HirExpr::Repeat {
             expr: Box::new(merge_charsets_expr(*expr)),
             min,
             max,
         },
-        IrExpr::PosLookahead(inner) => IrExpr::PosLookahead(Box::new(merge_charsets_expr(*inner))),
-        IrExpr::NegLookahead(inner) => IrExpr::NegLookahead(Box::new(merge_charsets_expr(*inner))),
-        IrExpr::WithFlag { flag, body } => IrExpr::WithFlag {
+        HirExpr::PosLookahead(inner) => {
+            HirExpr::PosLookahead(Box::new(merge_charsets_expr(*inner)))
+        }
+        HirExpr::NegLookahead(inner) => {
+            HirExpr::NegLookahead(Box::new(merge_charsets_expr(*inner)))
+        }
+        HirExpr::WithFlag { flag, body } => HirExpr::WithFlag {
             flag,
             body: Box::new(merge_charsets_expr(*body)),
         },
-        IrExpr::WithCounter {
+        HirExpr::WithCounter {
             counter,
             amount,
             body,
-        } => IrExpr::WithCounter {
+        } => HirExpr::WithCounter {
             counter,
             amount,
             body: Box::new(merge_charsets_expr(*body)),
         },
-        IrExpr::When { condition, body } => IrExpr::When {
+        HirExpr::When { condition, body } => HirExpr::When {
             condition,
             body: Box::new(merge_charsets_expr(*body)),
         },
-        IrExpr::DepthLimit { limit, body } => IrExpr::DepthLimit {
+        HirExpr::DepthLimit { limit, body } => HirExpr::DepthLimit {
             limit,
             body: Box::new(merge_charsets_expr(*body)),
         },
-        IrExpr::Dispatch(arms) => IrExpr::Dispatch(
-            arms.into_iter()
-                .map(|arm| crate::ir::DispatchArm {
-                    ranges: arm.ranges,
-                    expr: Box::new(merge_charsets_expr(*arm.expr)),
-                })
-                .collect(),
-        ),
-        IrExpr::Scan {
-            plain_ranges,
-            specials,
-            min,
-        } => IrExpr::Scan {
-            plain_ranges,
-            specials: specials
-                .into_iter()
-                .map(|arm| crate::ir::DispatchArm {
-                    ranges: arm.ranges,
-                    expr: Box::new(merge_charsets_expr(*arm.expr)),
-                })
-                .collect(),
-            min,
-        },
-        IrExpr::Labeled { expr, label } => IrExpr::Labeled {
+        HirExpr::Labeled { expr, label } => HirExpr::Labeled {
             expr: Box::new(merge_charsets_expr(*expr)),
             label,
         },
@@ -299,7 +234,7 @@ fn merge_charsets_expr(expr: IrExpr) -> IrExpr {
     }
 }
 
-pub(super) fn fuse_literals(mut program: IrProgram) -> IrProgram {
+pub(super) fn fuse_literals(mut program: HirProgram) -> HirProgram {
     for rule in &mut program.rules {
         let before = rule.expr.clone();
         rule.expr = fuse_literals_expr(rule.expr.clone());
@@ -310,15 +245,15 @@ pub(super) fn fuse_literals(mut program: IrProgram) -> IrProgram {
     program
 }
 
-fn fuse_literals_expr(expr: IrExpr) -> IrExpr {
+fn fuse_literals_expr(expr: HirExpr) -> HirExpr {
     match expr {
-        IrExpr::Seq(items) => {
+        HirExpr::Seq(items) => {
             let items: Vec<_> = items.into_iter().map(fuse_literals_expr).collect();
-            let mut fused: Vec<IrExpr> = Vec::new();
+            let mut fused: Vec<HirExpr> = Vec::new();
 
             for item in items {
                 match (&mut fused.last_mut(), &item) {
-                    (Some(IrExpr::Literal(prev)), IrExpr::Literal(next)) => {
+                    (Some(HirExpr::Literal(prev)), HirExpr::Literal(next)) => {
                         prev.push_str(next);
                     }
                     _ => fused.push(item),
@@ -328,64 +263,45 @@ fn fuse_literals_expr(expr: IrExpr) -> IrExpr {
             if fused.len() == 1 {
                 fused.into_iter().next().unwrap()
             } else {
-                IrExpr::Seq(fused)
+                HirExpr::Seq(fused)
             }
         }
-        IrExpr::Choice(items) => {
-            IrExpr::Choice(items.into_iter().map(fuse_literals_expr).collect())
+        HirExpr::Choice(items) => {
+            HirExpr::Choice(items.into_iter().map(fuse_literals_expr).collect())
         }
-        IrExpr::Repeat { expr, min, max } => IrExpr::Repeat {
+        HirExpr::Repeat { expr, min, max } => HirExpr::Repeat {
             expr: Box::new(fuse_literals_expr(*expr)),
             min,
             max,
         },
-        IrExpr::PosLookahead(inner) => IrExpr::PosLookahead(Box::new(fuse_literals_expr(*inner))),
-        IrExpr::NegLookahead(inner) => IrExpr::NegLookahead(Box::new(fuse_literals_expr(*inner))),
-        IrExpr::WithFlag { flag, body } => IrExpr::WithFlag {
+        HirExpr::PosLookahead(inner) => {
+            HirExpr::PosLookahead(Box::new(fuse_literals_expr(*inner)))
+        }
+        HirExpr::NegLookahead(inner) => {
+            HirExpr::NegLookahead(Box::new(fuse_literals_expr(*inner)))
+        }
+        HirExpr::WithFlag { flag, body } => HirExpr::WithFlag {
             flag,
             body: Box::new(fuse_literals_expr(*body)),
         },
-        IrExpr::WithCounter {
+        HirExpr::WithCounter {
             counter,
             amount,
             body,
-        } => IrExpr::WithCounter {
+        } => HirExpr::WithCounter {
             counter,
             amount,
             body: Box::new(fuse_literals_expr(*body)),
         },
-        IrExpr::When { condition, body } => IrExpr::When {
+        HirExpr::When { condition, body } => HirExpr::When {
             condition,
             body: Box::new(fuse_literals_expr(*body)),
         },
-        IrExpr::DepthLimit { limit, body } => IrExpr::DepthLimit {
+        HirExpr::DepthLimit { limit, body } => HirExpr::DepthLimit {
             limit,
             body: Box::new(fuse_literals_expr(*body)),
         },
-        IrExpr::Dispatch(arms) => IrExpr::Dispatch(
-            arms.into_iter()
-                .map(|arm| crate::ir::DispatchArm {
-                    ranges: arm.ranges,
-                    expr: Box::new(fuse_literals_expr(*arm.expr)),
-                })
-                .collect(),
-        ),
-        IrExpr::Scan {
-            plain_ranges,
-            specials,
-            min,
-        } => IrExpr::Scan {
-            plain_ranges,
-            specials: specials
-                .into_iter()
-                .map(|arm| crate::ir::DispatchArm {
-                    ranges: arm.ranges,
-                    expr: Box::new(fuse_literals_expr(*arm.expr)),
-                })
-                .collect(),
-            min,
-        },
-        IrExpr::Labeled { expr, label } => IrExpr::Labeled {
+        HirExpr::Labeled { expr, label } => HirExpr::Labeled {
             expr: Box::new(fuse_literals_expr(*expr)),
             label,
         },

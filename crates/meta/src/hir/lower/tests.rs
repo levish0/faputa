@@ -1,9 +1,9 @@
 use crate::compile;
-use crate::ir::{Boundary, CharRange, IrExpr, IrProgram};
+use crate::hir::{Boundary, CharRange, HirExpr, HirProgram};
 
 use super::lower;
 
-fn lower_source(source: &str) -> IrProgram {
+fn lower_source(source: &str) -> HirProgram {
     let grammar = compile(source).expect("compile failed");
     lower(&grammar)
 }
@@ -13,7 +13,7 @@ fn lowers_simple_rule() {
     let ir = lower_source(r#"hello = { "hello" }"#);
     assert_eq!(ir.rules.len(), 1);
     assert_eq!(ir.rules[0].name, "hello");
-    assert_eq!(ir.rules[0].expr, IrExpr::Literal("hello".into()));
+    assert_eq!(ir.rules[0].expr, HirExpr::Literal("hello".into()));
 }
 
 #[test]
@@ -26,8 +26,8 @@ fn resolves_rule_references() {
     );
     assert_eq!(ir.rules.len(), 2);
     match &ir.rules[1].expr {
-        IrExpr::Seq(items) => match &items[0] {
-            IrExpr::RuleRef(0) => {}
+        HirExpr::Seq(items) => match &items[0] {
+            HirExpr::RuleRef(0) => {}
             other => panic!("expected RuleRef(0), got {other:?}"),
         },
         other => panic!("expected Seq, got {other:?}"),
@@ -39,7 +39,7 @@ fn char_range_becomes_charset() {
     let ir = lower_source("alpha = { 'a'..'z' }");
     assert_eq!(
         ir.rules[0].expr,
-        IrExpr::CharSet(vec![CharRange::new('a', 'z')])
+        HirExpr::CharSet(vec![CharRange::new('a', 'z')])
     );
 }
 
@@ -47,10 +47,10 @@ fn char_range_becomes_charset() {
 fn repeat_kinds_unified() {
     let ir = lower_source(r#"r = { "a"+ "b"* "c"? "d"{3} "e"{1,5} }"#);
     match &ir.rules[0].expr {
-        IrExpr::Seq(items) => {
+        HirExpr::Seq(items) => {
             assert!(matches!(
                 &items[0],
-                IrExpr::Repeat {
+                HirExpr::Repeat {
                     min: 1,
                     max: None,
                     ..
@@ -58,7 +58,7 @@ fn repeat_kinds_unified() {
             ));
             assert!(matches!(
                 &items[1],
-                IrExpr::Repeat {
+                HirExpr::Repeat {
                     min: 0,
                     max: None,
                     ..
@@ -66,7 +66,7 @@ fn repeat_kinds_unified() {
             ));
             assert!(matches!(
                 &items[2],
-                IrExpr::Repeat {
+                HirExpr::Repeat {
                     min: 0,
                     max: Some(1),
                     ..
@@ -74,7 +74,7 @@ fn repeat_kinds_unified() {
             ));
             assert!(matches!(
                 &items[3],
-                IrExpr::Repeat {
+                HirExpr::Repeat {
                     min: 3,
                     max: Some(3),
                     ..
@@ -82,7 +82,7 @@ fn repeat_kinds_unified() {
             ));
             assert!(matches!(
                 &items[4],
-                IrExpr::Repeat {
+                HirExpr::Repeat {
                     min: 1,
                     max: Some(5),
                     ..
@@ -135,24 +135,24 @@ fn builtins_lowered() {
     "#,
     );
     match &ir.rules[0].expr {
-        IrExpr::Seq(items) => assert_eq!(items[0], IrExpr::Boundary(Boundary::Soi)),
+        HirExpr::Seq(items) => assert_eq!(items[0], HirExpr::Boundary(Boundary::Soi)),
         other => panic!("expected Seq, got {other:?}"),
     }
     match &ir.rules[1].expr {
-        IrExpr::Seq(items) => assert_eq!(items[1], IrExpr::Boundary(Boundary::Eoi)),
+        HirExpr::Seq(items) => assert_eq!(items[1], HirExpr::Boundary(Boundary::Eoi)),
         other => panic!("expected Seq, got {other:?}"),
     }
-    assert_eq!(ir.rules[2].expr, IrExpr::Any);
+    assert_eq!(ir.rules[2].expr, HirExpr::Any);
 }
 
 #[test]
 fn group_unwrapped() {
     let ir = lower_source(r#"g = { ("a" | "b") }"#);
-    assert!(matches!(&ir.rules[0].expr, IrExpr::Choice(_)));
+    assert!(matches!(&ir.rules[0].expr, HirExpr::Choice(_)));
 }
 
 #[test]
 fn single_element_seq_unwrapped() {
     let ir = lower_source(r#"s = { "hello" }"#);
-    assert_eq!(ir.rules[0].expr, IrExpr::Literal("hello".into()));
+    assert_eq!(ir.rules[0].expr, HirExpr::Literal("hello".into()));
 }

@@ -1,28 +1,28 @@
-use super::IrExpr;
+use super::HirExpr;
 use crate::ast::{GuardCondition, StateDecl};
 
-/// A complete IR program ready for optimization and codegen.
+/// A complete HIR program ready for semantic optimization and MIR lowering.
 #[derive(Debug, Clone, PartialEq)]
-pub struct IrProgram {
+pub struct HirProgram {
     pub state_decls: Vec<StateDecl>,
-    pub rules: Vec<IrRule>,
+    pub rules: Vec<HirRule>,
 }
 
-impl IrProgram {
+impl HirProgram {
     /// Look up a rule index by name.
     pub fn rule_index(&self, name: &str) -> Option<usize> {
         self.rules.iter().position(|r| r.name == name)
     }
 
     /// Look up a rule by index.
-    pub fn rule(&self, index: usize) -> Option<&IrRule> {
+    pub fn rule(&self, index: usize) -> Option<&HirRule> {
         self.rules.get(index)
     }
 }
 
-/// A single named rule in the IR.
+/// A single named rule in the HIR.
 #[derive(Debug, Clone, PartialEq)]
-pub struct IrRule {
+pub struct HirRule {
     pub name: String,
     /// Whether the optimizer has decided to inline this rule at call sites.
     pub inline: bool,
@@ -34,7 +34,7 @@ pub struct IrRule {
     /// Pre-expression side effects (e.g., emit counter).
     pub emits: Vec<String>,
     /// The matching expression.
-    pub expr: IrExpr,
+    pub expr: HirExpr,
     /// Number of call sites referencing this rule (set by call-graph analysis).
     /// 0 means the rule is an entry point (not referenced by any other rule).
     pub ref_count: usize,

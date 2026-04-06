@@ -1,4 +1,4 @@
-use crate::ir::IrExpr;
+use crate::hir::HirExpr;
 
 use super::optimized;
 
@@ -14,11 +14,11 @@ fn trivial_rule_inlined() {
     assert!(
         matches!(
             &number.expr,
-            IrExpr::Repeat {
+            HirExpr::Repeat {
                 expr,
                 min: 1,
                 max: None,
-            } if matches!(&**expr, IrExpr::CharSet(_))
+            } if matches!(&**expr, HirExpr::CharSet(_))
         ),
         "expected Repeat(CharSet), got {:?}",
         &number.expr
@@ -51,12 +51,12 @@ fn non_trivial_rule_not_inlined() {
     );
     let ident = ir.rules.iter().find(|r| r.name == "ident").unwrap();
     match &ident.expr {
-        IrExpr::Seq(items) => {
-            assert!(matches!(&items[0], IrExpr::CharSet(_)));
+        HirExpr::Seq(items) => {
+            assert!(matches!(&items[0], HirExpr::CharSet(_)));
             assert!(
                 matches!(
                     &items[1],
-                    IrExpr::Repeat { expr, min: 0, max: None } if matches!(&**expr, IrExpr::CharSet(_))
+                    HirExpr::Repeat { expr, min: 0, max: None } if matches!(&**expr, HirExpr::CharSet(_))
                 ),
                 "expected Repeat(CharSet), got {:?}",
                 &items[1]
@@ -80,7 +80,7 @@ fn stateful_rule_not_inlined() {
     );
     assert!(ir.rules.iter().any(|r| r.name == "special"));
     let main = ir.rules.iter().find(|r| r.name == "main").unwrap();
-    assert!(matches!(&main.expr, IrExpr::RuleRef(_)));
+    assert!(matches!(&main.expr, HirExpr::RuleRef(_)));
 }
 
 #[test]

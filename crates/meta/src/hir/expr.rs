@@ -1,15 +1,15 @@
 use crate::ast::GuardCondition;
 
-/// IR expression — the core matching primitive.
+/// HIR expression — grammar semantics after lowering and semantic cleanup.
 ///
-/// Unlike the AST, this is optimized for transformation:
+/// Unlike the AST, this is optimized for semantic transformation:
 /// - No `Group` (purely syntactic in AST)
 /// - `CharSet` replaces individual `CharRange` (mergeable)
 /// - `RuleRef(usize)` replaces `Ident(String)` (resolved)
 /// - Unified `Repeat { min, max }` replaces all repeat variants
 /// - Stateful guards/emits are separate from the expression tree
 #[derive(Debug, Clone, PartialEq)]
-pub enum IrExpr {
+pub enum HirExpr {
     // ── Terminals ──
     /// Match a literal string. Adjacent literals can be fused.
     Literal(String),
@@ -29,77 +29,51 @@ pub enum IrExpr {
     RuleRef(usize),
 
     /// Match a sequence of expressions in order.
-    Seq(Vec<IrExpr>),
+    Seq(Vec<HirExpr>),
 
     /// Ordered choice: try each in order, backtrack on failure.
-    Choice(Vec<IrExpr>),
-
-    /// Deterministic choice lowered to a single-character dispatch table.
-    ///
-    /// Each arm owns a disjoint set of starting characters, allowing codegen to
-    /// branch directly instead of paying generic `alt(...)` backtracking costs.
-    Dispatch(Vec<DispatchArm>),
+    Choice(Vec<HirExpr>),
 
     /// Repetition with bounds.
     /// `*` = (0, None), `+` = (1, None), `?` = (0, Some(1)),
     /// `{n}` = (n, Some(n)), `{n,m}` = (n, Some(m))
     Repeat {
-        expr: Box<IrExpr>,
+        expr: Box<HirExpr>,
         min: u32,
         max: Option<u32>,
     },
 
     /// Positive lookahead (zero-width).
-    PosLookahead(Box<IrExpr>),
+    PosLookahead(Box<HirExpr>),
 
     /// Negative lookahead (zero-width).
-    NegLookahead(Box<IrExpr>),
+    NegLookahead(Box<HirExpr>),
 
     // ── Stateful ──
     /// Set flag, run body, restore previous value.
-    WithFlag { flag: String, body: Box<IrExpr> },
+    WithFlag { flag: String, body: Box<HirExpr> },
 
     /// Increment counter, run body, decrement on exit.
     WithCounter {
         counter: String,
         amount: u32,
-        body: Box<IrExpr>,
+        body: Box<HirExpr>,
     },
 
     /// Run body only if condition holds; otherwise succeed with no consumption.
     When {
         condition: GuardCondition,
-        body: Box<IrExpr>,
+        body: Box<HirExpr>,
     },
 
     /// Fail if recursion depth exceeds limit.
-    DepthLimit { limit: u32, body: Box<IrExpr> },
-
-    /// Fused char-class repeat for efficient codegen (e.g. winnow `take_while`).
-    ///
-    /// Recognized from `Repeat { expr: CharSet(ranges), min, max }` patterns.
-    TakeWhile {
-        ranges: Vec<CharRange>,
-        min: u32,
-        max: Option<u32>,
-    },
-
-    /// Repetition lowered to a chunked scanner plus special-case dispatch.
-    ///
-    /// This is used for patterns like string/comment bodies where most input
-    /// is "ordinary" single-char consumption, with a few prefixed branches
-    /// (escapes, sentinels, etc.) that require full parsing.
-    Scan {
-        plain_ranges: Vec<CharRange>,
-        specials: Vec<DispatchArm>,
-        min: u32,
-    },
+    DepthLimit { limit: u32, body: Box<HirExpr> },
 
     /// User-defined error label: `expr @ "custom message"`.
     ///
     /// Prevents optimization passes from merging through this boundary,
     /// preserving the user's intended error reporting structure.
-    Labeled { expr: Box<IrExpr>, label: String },
+    Labeled { expr: Box<HirExpr>, label: String },
 }
 
 /// An inclusive character range `(start, end)`.
@@ -117,13 +91,6 @@ impl CharRange {
     pub fn single(ch: char) -> Self {
         Self { start: ch, end: ch }
     }
-}
-
-/// A single arm in a deterministic dispatch table.
-#[derive(Debug, Clone, PartialEq)]
-pub struct DispatchArm {
-    pub ranges: Vec<CharRange>,
-    pub expr: Box<IrExpr>,
 }
 
 /// Zero-width position assertion.

@@ -24,13 +24,13 @@ fn spaces0(input: &mut &str) -> ModalResult<()> {
 }
 
 fn section(input: &mut &str) -> ModalResult<()> {
-    ('[', spaces0, name, spaces0, ']')
-        .void()
-        .parse_next(input)
+    ('[', spaces0, name, spaces0, ']').void().parse_next(input)
 }
 
 fn property(input: &mut &str) -> ModalResult<()> {
-    (name, spaces0, '=', spaces0, value).void().parse_next(input)
+    (name, spaces0, '=', spaces0, value)
+        .void()
+        .parse_next(input)
 }
 
 fn line(input: &mut &str) -> ModalResult<()> {
@@ -39,9 +39,7 @@ fn line(input: &mut &str) -> ModalResult<()> {
     match input.chars().next() {
         Some('\r' | '\n') => {}
         Some('[') => section.parse_next(input)?,
-        Some('0'..='9' | 'a'..='z' | 'A'..='Z' | '.' | '_' | '/') => {
-            property.parse_next(input)?
-        }
+        Some('0'..='9' | 'a'..='z' | 'A'..='Z' | '.' | '_' | '/') => property.parse_next(input)?,
         _ => return Err(ErrMode::Backtrack(ContextError::new())),
     }
 

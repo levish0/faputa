@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
-use crate::ir::{IrExpr, IrProgram, IrRule};
+use crate::hir::{HirExpr, HirProgram, HirRule};
 
-pub(super) fn inline_trivial_rules(mut program: IrProgram) -> IrProgram {
+pub(super) fn inline_trivial_rules(mut program: HirProgram) -> HirProgram {
     let mut referenced_by_others: HashSet<usize> = HashSet::new();
     for rule in &program.rules {
         collect_refs(&rule.expr, &mut referenced_by_others);
@@ -23,7 +23,7 @@ pub(super) fn inline_trivial_rules(mut program: IrProgram) -> IrProgram {
         }
     }
 
-    let inline_exprs: Vec<Option<IrExpr>> = program
+    let inline_exprs: Vec<Option<HirExpr>> = program
         .rules
         .iter()
         .map(|r| if r.inline { Some(r.expr.clone()) } else { None })
@@ -36,7 +36,7 @@ pub(super) fn inline_trivial_rules(mut program: IrProgram) -> IrProgram {
     program
 }
 
-pub(super) fn inline_small_single_use_rules(mut program: IrProgram) -> IrProgram {
+pub(super) fn inline_small_single_use_rules(mut program: HirProgram) -> HirProgram {
     let mut ref_counts = vec![0usize; program.rules.len()];
     for rule in &program.rules {
         count_raw_refs(&rule.expr, &mut ref_counts);
@@ -65,7 +65,7 @@ pub(super) fn inline_small_single_use_rules(mut program: IrProgram) -> IrProgram
         }
     }
 
-    let inline_exprs: Vec<Option<IrExpr>> = program
+    let inline_exprs: Vec<Option<HirExpr>> = program
         .rules
         .iter()
         .map(|r| if r.inline { Some(r.expr.clone()) } else { None })
@@ -78,22 +78,17 @@ pub(super) fn inline_small_single_use_rules(mut program: IrProgram) -> IrProgram
     program
 }
 
-fn is_trivial(rule: &IrRule) -> bool {
+fn is_trivial(rule: &HirRule) -> bool {
     if !rule.guards.is_empty() || !rule.emits.is_empty() {
         return false;
     }
     matches!(
         &rule.expr,
-        IrExpr::Literal(_)
-            | IrExpr::CharSet(_)
-            | IrExpr::Any
-            | IrExpr::Boundary(_)
-            | IrExpr::TakeWhile { .. }
-            | IrExpr::Scan { .. }
+        HirExpr::Literal(_) | HirExpr::CharSet(_) | HirExpr::Any | HirExpr::Boundary(_)
     )
 }
 
-fn is_small_inline_candidate(rule: &IrRule) -> bool {
+fn is_small_inline_candidate(rule: &HirRule) -> bool {
     if !rule.guards.is_empty() || !rule.emits.is_empty() || rule.error_label.is_some() {
         return false;
     }
@@ -101,162 +96,118 @@ fn is_small_inline_candidate(rule: &IrRule) -> bool {
     estimate_cost(&rule.expr) <= 14
 }
 
-fn estimate_cost(expr: &IrExpr) -> usize {
+fn estimate_cost(expr: &HirExpr) -> usize {
     match expr {
-        IrExpr::Literal(_) | IrExpr::CharSet(_) | IrExpr::Any | IrExpr::Boundary(_) => 1,
-        IrExpr::RuleRef(_) => 1,
-        IrExpr::Seq(items) | IrExpr::Choice(items) => {
+        HirExpr::Literal(_) | HirExpr::CharSet(_) | HirExpr::Any | HirExpr::Boundary(_) => 1,
+        HirExpr::RuleRef(_) => 1,
+        HirExpr::Seq(items) | HirExpr::Choice(items) => {
             1 + items.iter().map(estimate_cost).sum::<usize>()
         }
-        IrExpr::Dispatch(arms) => {
-            1 + arms.iter().map(|arm| estimate_cost(&arm.expr)).sum::<usize>()
-        }
-        IrExpr::Repeat { expr, .. }
-        | IrExpr::PosLookahead(expr)
-        | IrExpr::NegLookahead(expr)
-        | IrExpr::Labeled { expr, .. } => 1 + estimate_cost(expr),
-        IrExpr::WithFlag { body: _, .. }
-        | IrExpr::WithCounter { body: _, .. }
-        | IrExpr::When { body: _, .. }
-        | IrExpr::DepthLimit { body: _, .. } => usize::MAX / 4,
-        IrExpr::TakeWhile { .. } => 1,
-        IrExpr::Scan { specials, .. } => {
-            1 + specials.iter().map(|arm| estimate_cost(&arm.expr)).sum::<usize>()
-        }
+        HirExpr::Repeat { expr, .. }
+        | HirExpr::PosLookahead(expr)
+        | HirExpr::NegLookahead(expr)
+        | HirExpr::Labeled { expr, .. } => 1 + estimate_cost(expr),
+        HirExpr::WithFlag { body: _, .. }
+        | HirExpr::WithCounter { body: _, .. }
+        | HirExpr::When { body: _, .. }
+        | HirExpr::DepthLimit { body: _, .. } => usize::MAX / 4,
     }
 }
 
-fn contains_rule_ref(expr: &IrExpr, needle: usize) -> bool {
+fn contains_rule_ref(expr: &HirExpr, needle: usize) -> bool {
     match expr {
-        IrExpr::RuleRef(idx) => *idx == needle,
-        IrExpr::Seq(items) | IrExpr::Choice(items) => {
+        HirExpr::RuleRef(idx) => *idx == needle,
+        HirExpr::Seq(items) | HirExpr::Choice(items) => {
             items.iter().any(|item| contains_rule_ref(item, needle))
         }
-        IrExpr::Dispatch(arms) => arms.iter().any(|arm| contains_rule_ref(&arm.expr, needle)),
-        IrExpr::Repeat { expr, .. }
-        | IrExpr::PosLookahead(expr)
-        | IrExpr::NegLookahead(expr)
-        | IrExpr::WithFlag { body: expr, .. }
-        | IrExpr::WithCounter { body: expr, .. }
-        | IrExpr::When { body: expr, .. }
-        | IrExpr::DepthLimit { body: expr, .. }
-        | IrExpr::Labeled { expr, .. } => contains_rule_ref(expr, needle),
-        IrExpr::Scan { specials, .. } => specials
-            .iter()
-            .any(|arm| contains_rule_ref(&arm.expr, needle)),
+        HirExpr::Repeat { expr, .. }
+        | HirExpr::PosLookahead(expr)
+        | HirExpr::NegLookahead(expr)
+        | HirExpr::WithFlag { body: expr, .. }
+        | HirExpr::WithCounter { body: expr, .. }
+        | HirExpr::When { body: expr, .. }
+        | HirExpr::DepthLimit { body: expr, .. }
+        | HirExpr::Labeled { expr, .. } => contains_rule_ref(expr, needle),
         _ => false,
     }
 }
 
-fn count_raw_refs(expr: &IrExpr, counts: &mut [usize]) {
+fn count_raw_refs(expr: &HirExpr, counts: &mut [usize]) {
     match expr {
-        IrExpr::RuleRef(idx) => {
+        HirExpr::RuleRef(idx) => {
             counts[*idx] += 1;
         }
-        IrExpr::Seq(items) | IrExpr::Choice(items) => {
+        HirExpr::Seq(items) | HirExpr::Choice(items) => {
             for item in items {
                 count_raw_refs(item, counts);
             }
         }
-        IrExpr::Dispatch(arms) => {
-            for arm in arms {
-                count_raw_refs(&arm.expr, counts);
-            }
-        }
-        IrExpr::Repeat { expr, .. }
-        | IrExpr::PosLookahead(expr)
-        | IrExpr::NegLookahead(expr)
-        | IrExpr::WithFlag { body: expr, .. }
-        | IrExpr::WithCounter { body: expr, .. }
-        | IrExpr::When { body: expr, .. }
-        | IrExpr::DepthLimit { body: expr, .. }
-        | IrExpr::Labeled { expr, .. } => count_raw_refs(expr, counts),
-        IrExpr::Scan { specials, .. } => {
-            for arm in specials {
-                count_raw_refs(&arm.expr, counts);
-            }
-        }
+        HirExpr::Repeat { expr, .. }
+        | HirExpr::PosLookahead(expr)
+        | HirExpr::NegLookahead(expr)
+        | HirExpr::WithFlag { body: expr, .. }
+        | HirExpr::WithCounter { body: expr, .. }
+        | HirExpr::When { body: expr, .. }
+        | HirExpr::DepthLimit { body: expr, .. }
+        | HirExpr::Labeled { expr, .. } => count_raw_refs(expr, counts),
         _ => {}
     }
 }
 
-fn inline_refs(expr: IrExpr, inline_exprs: &[Option<IrExpr>]) -> IrExpr {
+fn inline_refs(expr: HirExpr, inline_exprs: &[Option<HirExpr>]) -> HirExpr {
     match expr {
-        IrExpr::RuleRef(idx) => {
+        HirExpr::RuleRef(idx) => {
             if let Some(Some(inlined)) = inline_exprs.get(idx) {
                 inlined.clone()
             } else {
-                IrExpr::RuleRef(idx)
+                HirExpr::RuleRef(idx)
             }
         }
-        IrExpr::Seq(items) => IrExpr::Seq(
+        HirExpr::Seq(items) => HirExpr::Seq(
             items
                 .into_iter()
                 .map(|e| inline_refs(e, inline_exprs))
                 .collect(),
         ),
-        IrExpr::Choice(items) => IrExpr::Choice(
+        HirExpr::Choice(items) => HirExpr::Choice(
             items
                 .into_iter()
                 .map(|e| inline_refs(e, inline_exprs))
                 .collect(),
         ),
-        IrExpr::Dispatch(arms) => IrExpr::Dispatch(
-            arms.into_iter()
-                .map(|arm| crate::ir::DispatchArm {
-                    ranges: arm.ranges,
-                    expr: Box::new(inline_refs(*arm.expr, inline_exprs)),
-                })
-                .collect(),
-        ),
-        IrExpr::Repeat { expr, min, max } => IrExpr::Repeat {
+        HirExpr::Repeat { expr, min, max } => HirExpr::Repeat {
             expr: Box::new(inline_refs(*expr, inline_exprs)),
             min,
             max,
         },
-        IrExpr::PosLookahead(inner) => {
-            IrExpr::PosLookahead(Box::new(inline_refs(*inner, inline_exprs)))
+        HirExpr::PosLookahead(inner) => {
+            HirExpr::PosLookahead(Box::new(inline_refs(*inner, inline_exprs)))
         }
-        IrExpr::NegLookahead(inner) => {
-            IrExpr::NegLookahead(Box::new(inline_refs(*inner, inline_exprs)))
+        HirExpr::NegLookahead(inner) => {
+            HirExpr::NegLookahead(Box::new(inline_refs(*inner, inline_exprs)))
         }
-        IrExpr::WithFlag { flag, body } => IrExpr::WithFlag {
+        HirExpr::WithFlag { flag, body } => HirExpr::WithFlag {
             flag,
             body: Box::new(inline_refs(*body, inline_exprs)),
         },
-        IrExpr::WithCounter {
+        HirExpr::WithCounter {
             counter,
             amount,
             body,
-        } => IrExpr::WithCounter {
+        } => HirExpr::WithCounter {
             counter,
             amount,
             body: Box::new(inline_refs(*body, inline_exprs)),
         },
-        IrExpr::When { condition, body } => IrExpr::When {
+        HirExpr::When { condition, body } => HirExpr::When {
             condition,
             body: Box::new(inline_refs(*body, inline_exprs)),
         },
-        IrExpr::DepthLimit { limit, body } => IrExpr::DepthLimit {
+        HirExpr::DepthLimit { limit, body } => HirExpr::DepthLimit {
             limit,
             body: Box::new(inline_refs(*body, inline_exprs)),
         },
-        IrExpr::Scan {
-            plain_ranges,
-            specials,
-            min,
-        } => IrExpr::Scan {
-            plain_ranges,
-            specials: specials
-                .into_iter()
-                .map(|arm| crate::ir::DispatchArm {
-                    ranges: arm.ranges,
-                    expr: Box::new(inline_refs(*arm.expr, inline_exprs)),
-                })
-                .collect(),
-            min,
-        },
-        IrExpr::Labeled { expr, label } => IrExpr::Labeled {
+        HirExpr::Labeled { expr, label } => HirExpr::Labeled {
             expr: Box::new(inline_refs(*expr, inline_exprs)),
             label,
         },
@@ -264,45 +215,35 @@ fn inline_refs(expr: IrExpr, inline_exprs: &[Option<IrExpr>]) -> IrExpr {
     }
 }
 
-pub(super) fn eliminate_dead_rules(program: IrProgram) -> IrProgram {
+pub(super) fn eliminate_dead_rules(program: HirProgram) -> HirProgram {
     program
 }
 
-fn collect_refs(expr: &IrExpr, refs: &mut HashSet<usize>) {
+fn collect_refs(expr: &HirExpr, refs: &mut HashSet<usize>) {
     match expr {
-        IrExpr::RuleRef(idx) => {
+        HirExpr::RuleRef(idx) => {
             refs.insert(*idx);
         }
-        IrExpr::Seq(items) | IrExpr::Choice(items) => {
+        HirExpr::Seq(items) | HirExpr::Choice(items) => {
             for item in items {
                 collect_refs(item, refs);
             }
         }
-        IrExpr::Dispatch(arms) => {
-            for arm in arms {
-                collect_refs(&arm.expr, refs);
-            }
-        }
-        IrExpr::Repeat { expr, .. }
-        | IrExpr::PosLookahead(expr)
-        | IrExpr::NegLookahead(expr)
-        | IrExpr::WithFlag { body: expr, .. }
-        | IrExpr::WithCounter { body: expr, .. }
-        | IrExpr::When { body: expr, .. }
-        | IrExpr::DepthLimit { body: expr, .. }
-        | IrExpr::Labeled { expr, .. } => {
+        HirExpr::Repeat { expr, .. }
+        | HirExpr::PosLookahead(expr)
+        | HirExpr::NegLookahead(expr)
+        | HirExpr::WithFlag { body: expr, .. }
+        | HirExpr::WithCounter { body: expr, .. }
+        | HirExpr::When { body: expr, .. }
+        | HirExpr::DepthLimit { body: expr, .. }
+        | HirExpr::Labeled { expr, .. } => {
             collect_refs(expr, refs);
-        }
-        IrExpr::Scan { specials, .. } => {
-            for arm in specials {
-                collect_refs(&arm.expr, refs);
-            }
         }
         _ => {}
     }
 }
 
-pub(super) fn compute_ref_counts(mut program: IrProgram) -> IrProgram {
+pub(super) fn compute_ref_counts(mut program: HirProgram) -> HirProgram {
     let mut counts = vec![0usize; program.rules.len()];
     for rule in &program.rules {
         if !rule.inline {
@@ -315,35 +256,25 @@ pub(super) fn compute_ref_counts(mut program: IrProgram) -> IrProgram {
     program
 }
 
-fn count_refs(expr: &IrExpr, counts: &mut [usize]) {
+fn count_refs(expr: &HirExpr, counts: &mut [usize]) {
     match expr {
-        IrExpr::RuleRef(idx) => {
+        HirExpr::RuleRef(idx) => {
             counts[*idx] += 1;
         }
-        IrExpr::Seq(items) | IrExpr::Choice(items) => {
+        HirExpr::Seq(items) | HirExpr::Choice(items) => {
             for item in items {
                 count_refs(item, counts);
             }
         }
-        IrExpr::Dispatch(arms) => {
-            for arm in arms {
-                count_refs(&arm.expr, counts);
-            }
-        }
-        IrExpr::Repeat { expr, .. }
-        | IrExpr::PosLookahead(expr)
-        | IrExpr::NegLookahead(expr)
-        | IrExpr::WithFlag { body: expr, .. }
-        | IrExpr::WithCounter { body: expr, .. }
-        | IrExpr::When { body: expr, .. }
-        | IrExpr::DepthLimit { body: expr, .. }
-        | IrExpr::Labeled { expr, .. } => {
+        HirExpr::Repeat { expr, .. }
+        | HirExpr::PosLookahead(expr)
+        | HirExpr::NegLookahead(expr)
+        | HirExpr::WithFlag { body: expr, .. }
+        | HirExpr::WithCounter { body: expr, .. }
+        | HirExpr::When { body: expr, .. }
+        | HirExpr::DepthLimit { body: expr, .. }
+        | HirExpr::Labeled { expr, .. } => {
             count_refs(expr, counts);
-        }
-        IrExpr::Scan { specials, .. } => {
-            for arm in specials {
-                count_refs(&arm.expr, counts);
-            }
         }
         _ => {}
     }

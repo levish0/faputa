@@ -3,7 +3,7 @@ mod gen_data;
 use criterion::{criterion_group, criterion_main, Criterion};
 use pest::Parser as PestParser;
 
-use format_bench::manual_winnow;
+use format_bench::{manual_csv, manual_http, manual_ini, manual_json};
 
 mod json {
     use faputa_derive::Parser;
@@ -57,7 +57,7 @@ fn bench_json(c: &mut Criterion) {
     let data = gen_data::generate_json();
 
     json::FaputaJson::parse_json(&data).expect("faputa json failed");
-    manual_winnow::parse_json(&data).expect("manual winnow json failed");
+    manual_json::parse(&data).expect("manual json failed");
     json::PestJson::parse(json::Rule::json, &data).expect("pest json failed");
     serde_json::from_str::<serde_json::Value>(&data).expect("serde_json failed");
 
@@ -67,8 +67,8 @@ fn bench_json(c: &mut Criterion) {
         b.iter(|| json::FaputaJson::parse_json(std::hint::black_box(&data)).unwrap())
     });
 
-    group.bench_function("winnow_manual", |b| {
-        b.iter(|| manual_winnow::parse_json(std::hint::black_box(&data)).unwrap())
+    group.bench_function("manual_json", |b| {
+        b.iter(|| manual_json::parse(std::hint::black_box(&data)).unwrap())
     });
 
     group.bench_function("pest", |b| {
@@ -86,7 +86,7 @@ fn bench_csv(c: &mut Criterion) {
     let data = gen_data::generate_csv();
 
     csv::FaputaCsv::parse_file(&data).expect("faputa csv failed");
-    manual_winnow::parse_csv(&data).expect("manual winnow csv failed");
+    manual_csv::parse(&data).expect("manual csv failed");
     csv::PestCsv::parse(csv::Rule::file, &data).expect("pest csv failed");
 
     let mut group = c.benchmark_group("csv_parse");
@@ -95,8 +95,8 @@ fn bench_csv(c: &mut Criterion) {
         b.iter(|| csv::FaputaCsv::parse_file(std::hint::black_box(&data)).unwrap())
     });
 
-    group.bench_function("winnow_manual", |b| {
-        b.iter(|| manual_winnow::parse_csv(std::hint::black_box(&data)).unwrap())
+    group.bench_function("manual_csv", |b| {
+        b.iter(|| manual_csv::parse(std::hint::black_box(&data)).unwrap())
     });
 
     group.bench_function("pest", |b| {
@@ -110,7 +110,7 @@ fn bench_ini(c: &mut Criterion) {
     let data = gen_data::generate_ini();
 
     ini::FaputaIni::parse_file(&data).expect("faputa ini failed");
-    manual_winnow::parse_ini(&data).expect("manual winnow ini failed");
+    manual_ini::parse(&data).expect("manual ini failed");
     ini::PestIni::parse(ini::Rule::file, &data).expect("pest ini failed");
 
     let mut group = c.benchmark_group("ini_parse");
@@ -119,8 +119,8 @@ fn bench_ini(c: &mut Criterion) {
         b.iter(|| ini::FaputaIni::parse_file(std::hint::black_box(&data)).unwrap())
     });
 
-    group.bench_function("winnow_manual", |b| {
-        b.iter(|| manual_winnow::parse_ini(std::hint::black_box(&data)).unwrap())
+    group.bench_function("manual_ini", |b| {
+        b.iter(|| manual_ini::parse(std::hint::black_box(&data)).unwrap())
     });
 
     group.bench_function("pest", |b| {
@@ -134,7 +134,7 @@ fn bench_http(c: &mut Criterion) {
     let data = gen_data::generate_http();
 
     http::FaputaHttp::parse_http(&data).expect("faputa http failed");
-    manual_winnow::parse_http(&data).expect("manual winnow http failed");
+    manual_http::parse(&data).expect("manual http failed");
     http::PestHttp::parse(http::Rule::http, &data).expect("pest http failed");
 
     let mut group = c.benchmark_group("http_parse");
@@ -143,8 +143,8 @@ fn bench_http(c: &mut Criterion) {
         b.iter(|| http::FaputaHttp::parse_http(std::hint::black_box(&data)).unwrap())
     });
 
-    group.bench_function("winnow_manual", |b| {
-        b.iter(|| manual_winnow::parse_http(std::hint::black_box(&data)).unwrap())
+    group.bench_function("manual_http", |b| {
+        b.iter(|| manual_http::parse(std::hint::black_box(&data)).unwrap())
     });
 
     group.bench_function("pest", |b| {
