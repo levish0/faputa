@@ -23,8 +23,10 @@ pub struct MirRule {
     pub name: String,
     pub inline: bool,
     pub error_label: Option<String>,
+    pub is_entry_point: bool,
+    pub needs_context: bool,
+    pub needs_trace: bool,
     pub guards: Vec<GuardCondition>,
     pub emits: Vec<String>,
     pub expr: MirExpr,
-    pub ref_count: usize,
 }

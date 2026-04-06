@@ -19,12 +19,12 @@ pub(crate) fn generate_rules(ir: &MirProgram) -> TokenStream {
 fn generate_rule(rule: &MirRule, ir: &MirProgram) -> TokenStream {
     let fn_name = format_ident!("{}", rule.name);
     let label = rule.error_label.as_deref().unwrap_or(&rule.name);
-    let is_entry_point = rule.ref_count == 0;
-    let keep_context = is_entry_point || rule.error_label.is_some();
 
     tracing::trace!(
         rule = %rule.name,
-        entry_point = is_entry_point,
+        entry_point = rule.is_entry_point,
+        needs_context = rule.needs_context,
+        needs_trace = rule.needs_trace,
         label = %label,
         inline = rule.inline,
         "generating rule"
@@ -35,8 +35,9 @@ fn generate_rule(rule: &MirRule, ir: &MirProgram) -> TokenStream {
 
     let has_statements = !rule.guards.is_empty() || !rule.emits.is_empty();
 
-    if is_entry_point {
-        // Entry point: keep rule label context for surfaced parse errors.
+    if rule.needs_trace {
+        // Entry point: keep trace and surfaced rule label context.
+        debug_assert!(rule.needs_context);
         if has_statements {
             quote! {
                 fn #fn_name<'i>(input: &mut Input<'i, ParseState<'i>>) -> ModalResult<()> {
@@ -59,7 +60,7 @@ fn generate_rule(rule: &MirRule, ir: &MirProgram) -> TokenStream {
                 }
             }
         }
-    } else if keep_context {
+    } else if rule.needs_context {
         // Explicitly labeled helper rule: preserve user-authored context.
         if has_statements {
             quote! {
