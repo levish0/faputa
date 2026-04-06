@@ -26,6 +26,9 @@ pub struct IrRule {
     pub name: String,
     /// Whether the optimizer has decided to inline this rule at call sites.
     pub inline: bool,
+    /// Optional custom error label from `rule = @ "label" { ... }`.
+    /// Overrides the default `StrContext::Label(rule_name)` in codegen.
+    pub error_label: Option<String>,
     /// Pre-expression guards (fail-fast before attempting the match).
     pub guards: Vec<GuardCondition>,
     /// Pre-expression side effects (e.g., emit counter).

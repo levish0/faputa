@@ -77,6 +77,15 @@ pub enum IrExpr {
         min: u32,
         max: Option<u32>,
     },
+
+    /// User-defined error label: `expr @ "custom message"`.
+    ///
+    /// Prevents optimization passes from merging through this boundary,
+    /// preserving the user's intended error reporting structure.
+    Labeled {
+        expr: Box<IrExpr>,
+        label: String,
+    },
 }
 
 /// An inclusive character range `(start, end)`.

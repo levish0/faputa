@@ -18,7 +18,7 @@ pub(crate) fn generate_rules(ir: &IrProgram) -> TokenStream {
 
 fn generate_rule(rule: &IrRule, ir: &IrProgram) -> TokenStream {
     let fn_name = format_ident!("{}", rule.name);
-    let rule_name = &rule.name;
+    let label = rule.error_label.as_deref().unwrap_or(&rule.name);
     let is_entry_point = rule.ref_count == 0;
 
     let guard_code = generate_statements(&rule.guards, &rule.emits);
@@ -32,11 +32,11 @@ fn generate_rule(rule: &IrRule, ir: &IrProgram) -> TokenStream {
             quote! {
                 fn #fn_name<'i>(input: &mut Input<'i, ParseState>) -> ModalResult<&'i str> {
                     input.state.track_pos(input.current_token_start());
-                    winnow::combinator::trace(#rule_name, |input: &mut Input<'i, ParseState>| {
+                    winnow::combinator::trace(#label, |input: &mut Input<'i, ParseState>| {
                         #guard_code
                         (#expr_code).take().parse_next(input)
                     })
-                    .context(StrContext::Label(#rule_name))
+                    .context(StrContext::Label(#label))
                     .parse_next(input)
                 }
             }
@@ -44,8 +44,8 @@ fn generate_rule(rule: &IrRule, ir: &IrProgram) -> TokenStream {
             quote! {
                 fn #fn_name<'i>(input: &mut Input<'i, ParseState>) -> ModalResult<&'i str> {
                     input.state.track_pos(input.current_token_start());
-                    winnow::combinator::trace(#rule_name, (#expr_code).take())
-                        .context(StrContext::Label(#rule_name))
+                    winnow::combinator::trace(#label, (#expr_code).take())
+                        .context(StrContext::Label(#label))
                         .parse_next(input)
                 }
             }
@@ -60,7 +60,7 @@ fn generate_rule(rule: &IrRule, ir: &IrProgram) -> TokenStream {
                         #guard_code
                         (#expr_code).take().parse_next(input)
                     })
-                    .context(StrContext::Label(#rule_name))
+                    .context(StrContext::Label(#label))
                     .parse_next(input)
                 }
             }
@@ -69,7 +69,7 @@ fn generate_rule(rule: &IrRule, ir: &IrProgram) -> TokenStream {
                 fn #fn_name<'i>(input: &mut Input<'i, ParseState>) -> ModalResult<&'i str> {
                     input.state.track_pos(input.current_token_start());
                     (#expr_code).take()
-                        .context(StrContext::Label(#rule_name))
+                        .context(StrContext::Label(#label))
                         .parse_next(input)
                 }
             }

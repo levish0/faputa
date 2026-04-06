@@ -102,6 +102,9 @@ pub enum Token<'src> {
     Comma,
     #[token(":")]
     Colon,
+
+    #[token("@")]
+    At,
 }
 
 fn unescape_char(s: &str) -> Option<char> {

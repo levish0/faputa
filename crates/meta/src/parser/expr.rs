@@ -1,6 +1,5 @@
 use crate::ast::*;
 use crate::lexer::{self, Token};
-
 use super::error::ParseError;
 use super::statement::parse_guard_condition;
 use super::tokens::TokenStream;
@@ -42,7 +41,7 @@ fn parse_sequence(tokens: &mut TokenStream<'_>) -> Result<Expr, ParseError> {
     }
 }
 
-/// Postfix operators: `p+`, `p*`, `p?`, `p{n,m}`
+/// Postfix operators: `p+`, `p*`, `p?`, `p{n,m}`, `p @ "label"`
 fn parse_postfix(tokens: &mut TokenStream<'_>) -> Result<Expr, ParseError> {
     let mut expr = parse_prefix(tokens)?;
 
@@ -78,6 +77,25 @@ fn parse_postfix(tokens: &mut TokenStream<'_>) -> Result<Expr, ParseError> {
                 } else {
                     break;
                 }
+            }
+            Some(Token::At) => {
+                tokens.advance();
+                match tokens.advance() {
+                    Some(Token::StringLit(s)) => {
+                        let label = lexer::unescape_str(s);
+                        expr = Expr::Labeled {
+                            expr: Box::new(expr),
+                            label,
+                        };
+                    }
+                    other => {
+                        return Err(
+                            tokens.error(format!("expected string after '@', got {other:?}"))
+                        );
+                    }
+                }
+                // @ is terminal — don't allow chaining
+                break;
             }
             _ => break,
         }

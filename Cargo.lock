@@ -515,7 +515,7 @@ checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
 
 [[package]]
 name = "nanachi"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "memchr",
  "winnow",
@@ -523,7 +523,7 @@ dependencies = [
 
 [[package]]
 name = "nanachi_debugger"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "nanachi",
  "nanachi_meta",
@@ -532,7 +532,7 @@ dependencies = [
 
 [[package]]
 name = "nanachi_derive"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "nanachi",
  "nanachi_derive",
@@ -565,7 +565,7 @@ dependencies = [
 
 [[package]]
 name = "nanachi_generator"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "nanachi",
  "nanachi_meta",
@@ -577,7 +577,7 @@ dependencies = [
 
 [[package]]
 name = "nanachi_meta"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "logos",
  "nanachi",
@@ -586,7 +586,7 @@ dependencies = [
 
 [[package]]
 name = "nanachi_vm"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "nanachi",
  "nanachi_meta",

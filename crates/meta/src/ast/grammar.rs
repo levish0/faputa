@@ -13,10 +13,12 @@ pub enum Item {
     RuleDef(RuleDef),
 }
 
-/// A named rule: `rule_name = { ... }`.
+/// A named rule: `rule_name = { ... }` or `rule_name = @ "label" { ... }`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuleDef {
     pub name: String,
+    /// Optional custom error label: `rule = @ "custom label" { ... }`.
+    pub error_label: Option<String>,
     pub body: RuleBody,
 }
 

@@ -62,6 +62,7 @@ fn lower_rule(rule: &ast::RuleDef, indices: &HashMap<&str, usize>) -> IrRule {
     IrRule {
         name: rule.name.clone(),
         inline: false,
+        error_label: rule.error_label.clone(),
         guards,
         emits,
         expr,
@@ -123,6 +124,11 @@ fn lower_expr(expr: &Expr, indices: &HashMap<&str, usize>) -> IrExpr {
 
         // Group is purely syntactic — unwrap.
         Expr::Group(inner) => lower_expr(inner, indices),
+
+        Expr::Labeled { expr, label } => IrExpr::Labeled {
+            expr: Box::new(lower_expr(expr, indices)),
+            label: label.clone(),
+        },
 
         Expr::With(w) => IrExpr::WithFlag {
             flag: w.flag.clone(),

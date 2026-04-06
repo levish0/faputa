@@ -83,6 +83,9 @@ fn check_expr_state(
         | Expr::Group(expr) => {
             check_expr_state(expr, rule_name, ctx, errors);
         }
+        Expr::Labeled { expr, .. } => {
+            check_expr_state(expr, rule_name, ctx, errors);
+        }
         Expr::StringLit(_) | Expr::CharRange(_, _) | Expr::Ident(_) | Expr::Builtin(_) => {}
     }
 }

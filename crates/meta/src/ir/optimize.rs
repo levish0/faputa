@@ -96,6 +96,10 @@ fn single_char_to_charset_expr(expr: IrExpr) -> IrExpr {
             limit,
             body: Box::new(single_char_to_charset_expr(*body)),
         },
+        IrExpr::Labeled { expr, label } => IrExpr::Labeled {
+            expr: Box::new(single_char_to_charset_expr(*expr)),
+            label,
+        },
         other => other,
     }
 }
@@ -168,6 +172,10 @@ fn flatten_expr(expr: IrExpr) -> IrExpr {
         IrExpr::DepthLimit { limit, body } => IrExpr::DepthLimit {
             limit,
             body: Box::new(flatten_expr(*body)),
+        },
+        IrExpr::Labeled { expr, label } => IrExpr::Labeled {
+            expr: Box::new(flatten_expr(*expr)),
+            label,
         },
         other => other,
     }
@@ -247,6 +255,10 @@ fn merge_charsets_expr(expr: IrExpr) -> IrExpr {
         IrExpr::DepthLimit { limit, body } => IrExpr::DepthLimit {
             limit,
             body: Box::new(merge_charsets_expr(*body)),
+        },
+        IrExpr::Labeled { expr, label } => IrExpr::Labeled {
+            expr: Box::new(merge_charsets_expr(*expr)),
+            label,
         },
         other => other,
     }
@@ -332,6 +344,10 @@ fn fuse_literals_expr(expr: IrExpr) -> IrExpr {
         IrExpr::DepthLimit { limit, body } => IrExpr::DepthLimit {
             limit,
             body: Box::new(fuse_literals_expr(*body)),
+        },
+        IrExpr::Labeled { expr, label } => IrExpr::Labeled {
+            expr: Box::new(fuse_literals_expr(*expr)),
+            label,
         },
         other => other,
     }
@@ -446,6 +462,10 @@ fn inline_refs(expr: IrExpr, inline_exprs: &[Option<IrExpr>]) -> IrExpr {
             limit,
             body: Box::new(inline_refs(*body, inline_exprs)),
         },
+        IrExpr::Labeled { expr, label } => IrExpr::Labeled {
+            expr: Box::new(inline_refs(*expr, inline_exprs)),
+            label,
+        },
         other => other,
     }
 }
@@ -478,7 +498,8 @@ fn collect_refs(expr: &IrExpr, refs: &mut HashSet<usize>) {
         | IrExpr::WithFlag { body: expr, .. }
         | IrExpr::WithCounter { body: expr, .. }
         | IrExpr::When { body: expr, .. }
-        | IrExpr::DepthLimit { body: expr, .. } => {
+        | IrExpr::DepthLimit { body: expr, .. }
+        | IrExpr::Labeled { expr, .. } => {
             collect_refs(expr, refs);
         }
         _ => {}
@@ -548,6 +569,10 @@ fn recognize_take_while_expr(expr: IrExpr) -> IrExpr {
             limit,
             body: Box::new(recognize_take_while_expr(*body)),
         },
+        IrExpr::Labeled { expr, label } => IrExpr::Labeled {
+            expr: Box::new(recognize_take_while_expr(*expr)),
+            label,
+        },
         other => other,
     }
 }
@@ -586,7 +611,8 @@ fn count_refs(expr: &IrExpr, counts: &mut [usize]) {
         | IrExpr::WithFlag { body: expr, .. }
         | IrExpr::WithCounter { body: expr, .. }
         | IrExpr::When { body: expr, .. }
-        | IrExpr::DepthLimit { body: expr, .. } => {
+        | IrExpr::DepthLimit { body: expr, .. }
+        | IrExpr::Labeled { expr, .. } => {
             count_refs(expr, counts);
         }
         _ => {}

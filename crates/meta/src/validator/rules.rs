@@ -86,6 +86,9 @@ fn check_expr_references(
         | Expr::Group(expr) => {
             check_expr_references(expr, rule_name, ctx, errors);
         }
+        Expr::Labeled { expr, .. } => {
+            check_expr_references(expr, rule_name, ctx, errors);
+        }
         Expr::With(w) => {
             check_expr_references(&w.body, rule_name, ctx, errors);
         }

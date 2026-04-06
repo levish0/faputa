@@ -43,6 +43,9 @@ pub enum Expr {
 
     /// `depth_limit(n) { expr }`
     DepthLimit(DepthLimitExpr),
+
+    /// `expr @ "custom error label"`
+    Labeled { expr: Box<Expr>, label: String },
 }
 
 #[derive(Debug, Clone, PartialEq)]

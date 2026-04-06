@@ -117,6 +117,11 @@ pub(crate) fn generate_expr(expr: &IrExpr, ir: &IrProgram) -> TokenStream {
         }
 
         IrExpr::TakeWhile { ranges, min, max } => generate_take_while(ranges, *min, *max),
+
+        IrExpr::Labeled { expr, label } => {
+            let inner = generate_expr(expr, ir);
+            quote! { (#inner).context(StrContext::Expected(StrContextValue::Description(#label))) }
+        }
     }
 }
 
@@ -324,6 +329,8 @@ fn generate_alt(items: Vec<TokenStream>) -> TokenStream {
 /// Used on Choice branches to generate `Expected(Description(...))`.
 fn describe_expr(expr: &IrExpr, ir: &IrProgram) -> String {
     match expr {
+        // User-provided label takes absolute precedence.
+        IrExpr::Labeled { label, .. } => label.clone(),
         IrExpr::Literal(s) => format!("\"{}\"", s.escape_default()),
         IrExpr::CharSet(ranges) => describe_ranges(ranges),
         IrExpr::Any => "any character".to_string(),

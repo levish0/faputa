@@ -1,5 +1,5 @@
-use crate::ast::{Grammar, Item, RuleBody, RuleDef};
-use crate::lexer::Token;
+use crate::ast::*;
+use crate::lexer::{self, Token};
 
 use super::error::ParseError;
 use super::expr::parse_choice;
@@ -29,6 +29,18 @@ fn parse_item(tokens: &mut TokenStream<'_>) -> Result<Item, ParseError> {
 fn parse_rule_def(tokens: &mut TokenStream<'_>) -> Result<RuleDef, ParseError> {
     let name = tokens.expect_ident()?;
     tokens.expect(&Token::Eq)?;
+
+    // Optional rule-level error label: `= @ "label" { ... }`
+    let error_label = if tokens.peek() == Some(&Token::At) {
+        tokens.advance();
+        match tokens.advance() {
+            Some(Token::StringLit(s)) => Some(lexer::unescape_str(s)),
+            other => return Err(tokens.error(format!("expected string after '@', got {other:?}"))),
+        }
+    } else {
+        None
+    };
+
     tokens.expect(&Token::LBrace)?;
 
     let statements = parse_statements(tokens)?;
@@ -38,6 +50,7 @@ fn parse_rule_def(tokens: &mut TokenStream<'_>) -> Result<RuleDef, ParseError> {
 
     Ok(RuleDef {
         name,
+        error_label,
         body: RuleBody { statements, expr },
     })
 }
