@@ -51,7 +51,7 @@ fn file(input: &mut &str) -> ModalResult<()> {
     repeat(0.., line)
         .fold(|| (), |(), _| ())
         .parse_next(input)?;
-    eof.parse_next(input)
+    eof.void().parse_next(input)
 }
 
 pub fn parse(source: &str) -> Result<(), String> {

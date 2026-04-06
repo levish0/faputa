@@ -1,5 +1,4 @@
 use faputa::winnow::combinator::{alt, eof, repeat};
-use faputa::winnow::error::{ContextError, ErrMode};
 use faputa::winnow::prelude::*;
 use faputa::winnow::token::take_while;
 
@@ -24,7 +23,7 @@ fn file(input: &mut &str) -> ModalResult<()> {
     repeat(0.., (record, line_ending))
         .fold(|| (), |(), _| ())
         .parse_next(input)?;
-    eof.parse_next(input)
+    eof.void().parse_next(input)
 }
 
 pub fn parse(source: &str) -> Result<(), String> {

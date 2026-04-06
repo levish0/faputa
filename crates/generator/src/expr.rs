@@ -1,5 +1,5 @@
 use faputa_meta::ast::{BuiltinPredicate, CompareOp, GuardCondition};
-use faputa_meta::ir::{Boundary, CharRange};
+use faputa_meta::hir::{Boundary, CharRange};
 use faputa_meta::mir::{DispatchArm, MirExpr, MirProgram};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};

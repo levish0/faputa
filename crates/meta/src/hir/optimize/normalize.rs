@@ -274,12 +274,8 @@ fn fuse_literals_expr(expr: HirExpr) -> HirExpr {
             min,
             max,
         },
-        HirExpr::PosLookahead(inner) => {
-            HirExpr::PosLookahead(Box::new(fuse_literals_expr(*inner)))
-        }
-        HirExpr::NegLookahead(inner) => {
-            HirExpr::NegLookahead(Box::new(fuse_literals_expr(*inner)))
-        }
+        HirExpr::PosLookahead(inner) => HirExpr::PosLookahead(Box::new(fuse_literals_expr(*inner))),
+        HirExpr::NegLookahead(inner) => HirExpr::NegLookahead(Box::new(fuse_literals_expr(*inner))),
         HirExpr::WithFlag { flag, body } => HirExpr::WithFlag {
             flag,
             body: Box::new(fuse_literals_expr(*body)),

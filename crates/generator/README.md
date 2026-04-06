@@ -2,7 +2,7 @@
 
 Code generator for [faputa](https://github.com/levish0/faputa).
 
-Takes an `IrProgram` from `faputa_meta` and produces Rust source code using
+Takes optimized MIR from `faputa_meta` and produces Rust source code using
 [winnow](https://docs.rs/winnow) combinators.
 
 ## Usage
@@ -24,10 +24,10 @@ let code: String = generate(&grammar);
 
 ## What it generates
 
-Each rule becomes a function. Entry-point rules get full `trace()` +
-`.context(Label)` + `track_pos()` wrapping. Internal rules get minimal
-wrappers. The optimizer's `TakeWhile` nodes map to winnow's SIMD-accelerated
-`take_while()`.
+Each rule becomes a function. Entry-point rules get `.context(Label)` +
+`track_pos()` wrapping. Internal rules get minimal wrappers. MIR shape nodes
+such as `TakeWhile`, `Dispatch`, `Scan`, and `SeparatedList` map directly to
+specialized winnow code.
 
 ## License
 

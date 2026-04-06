@@ -1,4 +1,4 @@
-use crate::ir::CharRange;
+use crate::hir::CharRange;
 use crate::mir::{DispatchArm, MirExpr, MirProgram, MirRule};
 
 pub(super) fn recognize_scan_repeat(mut program: MirProgram) -> MirProgram {

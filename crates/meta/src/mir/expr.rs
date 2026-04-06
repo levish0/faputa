@@ -1,5 +1,5 @@
 use crate::ast::GuardCondition;
-use crate::ir::{Boundary, CharRange};
+use crate::hir::{Boundary, CharRange};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MirExpr {

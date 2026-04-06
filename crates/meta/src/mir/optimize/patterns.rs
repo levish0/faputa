@@ -25,18 +25,12 @@ fn recognize_take_while_expr(expr: MirExpr) -> MirExpr {
                 }
             }
         }
-        MirExpr::Seq(items) => MirExpr::Seq(
-            items
-                .into_iter()
-                .map(recognize_take_while_expr)
-                .collect(),
-        ),
-        MirExpr::Choice(items) => MirExpr::Choice(
-            items
-                .into_iter()
-                .map(recognize_take_while_expr)
-                .collect(),
-        ),
+        MirExpr::Seq(items) => {
+            MirExpr::Seq(items.into_iter().map(recognize_take_while_expr).collect())
+        }
+        MirExpr::Choice(items) => {
+            MirExpr::Choice(items.into_iter().map(recognize_take_while_expr).collect())
+        }
         MirExpr::Dispatch(arms) => MirExpr::Dispatch(
             arms.into_iter()
                 .map(|arm| DispatchArm {

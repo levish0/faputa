@@ -1,8 +1,8 @@
-use crate::ir::{DispatchArm as IrDispatchArm, IrExpr, IrProgram};
+use crate::hir::{HirExpr, HirProgram};
 
-use super::{DispatchArm, MirExpr, MirProgram, MirRule};
+use super::{MirExpr, MirProgram, MirRule};
 
-pub fn lower(program: &IrProgram) -> MirProgram {
+pub fn lower(program: &HirProgram) -> MirProgram {
     MirProgram {
         state_decls: program.state_decls.clone(),
         rules: program
@@ -21,28 +21,27 @@ pub fn lower(program: &IrProgram) -> MirProgram {
     }
 }
 
-fn lower_expr(expr: &IrExpr) -> MirExpr {
+fn lower_expr(expr: &HirExpr) -> MirExpr {
     match expr {
-        IrExpr::Literal(s) => MirExpr::Literal(s.clone()),
-        IrExpr::CharSet(ranges) => MirExpr::CharSet(ranges.clone()),
-        IrExpr::Any => MirExpr::Any,
-        IrExpr::Boundary(boundary) => MirExpr::Boundary(*boundary),
-        IrExpr::RuleRef(idx) => MirExpr::RuleRef(*idx),
-        IrExpr::Seq(items) => MirExpr::Seq(items.iter().map(lower_expr).collect()),
-        IrExpr::Choice(items) => MirExpr::Choice(items.iter().map(lower_expr).collect()),
-        IrExpr::Dispatch(arms) => MirExpr::Dispatch(arms.iter().map(lower_arm).collect()),
-        IrExpr::Repeat { expr, min, max } => MirExpr::Repeat {
+        HirExpr::Literal(s) => MirExpr::Literal(s.clone()),
+        HirExpr::CharSet(ranges) => MirExpr::CharSet(ranges.clone()),
+        HirExpr::Any => MirExpr::Any,
+        HirExpr::Boundary(boundary) => MirExpr::Boundary(*boundary),
+        HirExpr::RuleRef(idx) => MirExpr::RuleRef(*idx),
+        HirExpr::Seq(items) => MirExpr::Seq(items.iter().map(lower_expr).collect()),
+        HirExpr::Choice(items) => MirExpr::Choice(items.iter().map(lower_expr).collect()),
+        HirExpr::Repeat { expr, min, max } => MirExpr::Repeat {
             expr: Box::new(lower_expr(expr)),
             min: *min,
             max: *max,
         },
-        IrExpr::PosLookahead(inner) => MirExpr::PosLookahead(Box::new(lower_expr(inner))),
-        IrExpr::NegLookahead(inner) => MirExpr::NegLookahead(Box::new(lower_expr(inner))),
-        IrExpr::WithFlag { flag, body } => MirExpr::WithFlag {
+        HirExpr::PosLookahead(inner) => MirExpr::PosLookahead(Box::new(lower_expr(inner))),
+        HirExpr::NegLookahead(inner) => MirExpr::NegLookahead(Box::new(lower_expr(inner))),
+        HirExpr::WithFlag { flag, body } => MirExpr::WithFlag {
             flag: flag.clone(),
             body: Box::new(lower_expr(body)),
         },
-        IrExpr::WithCounter {
+        HirExpr::WithCounter {
             counter,
             amount,
             body,
@@ -51,38 +50,17 @@ fn lower_expr(expr: &IrExpr) -> MirExpr {
             amount: *amount,
             body: Box::new(lower_expr(body)),
         },
-        IrExpr::When { condition, body } => MirExpr::When {
+        HirExpr::When { condition, body } => MirExpr::When {
             condition: condition.clone(),
             body: Box::new(lower_expr(body)),
         },
-        IrExpr::DepthLimit { limit, body } => MirExpr::DepthLimit {
+        HirExpr::DepthLimit { limit, body } => MirExpr::DepthLimit {
             limit: *limit,
             body: Box::new(lower_expr(body)),
         },
-        IrExpr::TakeWhile { ranges, min, max } => MirExpr::TakeWhile {
-            ranges: ranges.clone(),
-            min: *min,
-            max: *max,
-        },
-        IrExpr::Scan {
-            plain_ranges,
-            specials,
-            min,
-        } => MirExpr::Scan {
-            plain_ranges: plain_ranges.clone(),
-            specials: specials.iter().map(lower_arm).collect(),
-            min: *min,
-        },
-        IrExpr::Labeled { expr, label } => MirExpr::Labeled {
+        HirExpr::Labeled { expr, label } => MirExpr::Labeled {
             expr: Box::new(lower_expr(expr)),
             label: label.clone(),
         },
-    }
-}
-
-fn lower_arm(arm: &IrDispatchArm) -> DispatchArm {
-    DispatchArm {
-        ranges: arm.ranges.clone(),
-        expr: Box::new(lower_expr(&arm.expr)),
     }
 }

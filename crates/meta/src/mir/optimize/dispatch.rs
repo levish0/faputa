@@ -1,4 +1,4 @@
-use crate::ir::CharRange;
+use crate::hir::CharRange;
 use crate::mir::{DispatchArm, MirExpr, MirProgram, MirRule};
 
 pub(super) fn recognize_dispatch(mut program: MirProgram) -> MirProgram {
@@ -116,7 +116,10 @@ fn build_dispatch_arms(items: &[MirExpr], rules: &[MirRule]) -> Option<Vec<Dispa
             exprs.push(item.clone());
             continue;
         }
-        if seen.iter().any(|existing| ranges_overlap_any(&ranges, existing)) {
+        if seen
+            .iter()
+            .any(|existing| ranges_overlap_any(&ranges, existing))
+        {
             return None;
         }
         seen.push(ranges.clone());

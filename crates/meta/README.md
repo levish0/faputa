@@ -2,21 +2,23 @@
 
 Grammar compiler for [faputa](https://github.com/levish0/faputa).
 
-Parses `.faputa` grammar files and produces a validated, optimized IR ready for
-code generation.
+Parses `.faputa` grammar files and produces validated HIR plus optimized MIR
+ready for code generation.
 
 ## Pipeline
 
 ```
-source → Lexer → Parser → AST → Validator → IR Lowering → Optimizer → IrProgram
+source → Lexer → Parser → AST → Validator → HIR Lowering → HIR Optimize → MIR Lowering → MIR Optimize
 ```
 
 - **Lexer** — Logos-based tokenizer
 - **Parser** — hand-written recursive descent, full PEG expression support
 - **Validator** — duplicate/undefined rule checking, state kind verification
-- **IR Lowering** — AST → typed IR with resolved rule references
-- **Optimizer** — trivial rule inlining, literal fusion, CharSet merging,
-  flatten, TakeWhile recognition, dead rule elimination, ref-count analysis
+- **HIR Lowering** — AST → typed HIR with resolved rule references
+- **HIR Optimize** — semantic normalization, trivial/small-rule inlining,
+  dead rule elimination, ref-count analysis
+- **MIR Lowering / Optimize** — parser-shape lowering such as `Dispatch`,
+  `TakeWhile`, `Scan`, and `SeparatedList`
 
 ## Usage
 

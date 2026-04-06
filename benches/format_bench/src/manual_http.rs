@@ -97,7 +97,7 @@ fn http(input: &mut &str) -> ModalResult<()> {
         }
     }
 
-    eof.parse_next(input)
+    eof.void().parse_next(input)
 }
 
 pub fn parse(source: &str) -> Result<(), String> {

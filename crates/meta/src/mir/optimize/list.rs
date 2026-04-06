@@ -11,7 +11,15 @@ fn recognize_list_expr(expr: MirExpr) -> MirExpr {
     match expr {
         MirExpr::Seq(items) => {
             let items: Vec<_> = items.into_iter().map(recognize_list_expr).collect();
-            if let [first, MirExpr::Repeat { expr: rest, min: 0, max: None }] = items.as_slice() {
+            if let [
+                first,
+                MirExpr::Repeat {
+                    expr: rest,
+                    min: 0,
+                    max: None,
+                },
+            ] = items.as_slice()
+            {
                 if matches!(&**rest, MirExpr::Seq(parts) if parts.len() >= 2) {
                     return MirExpr::SeparatedList {
                         first: Box::new(first.clone()),
@@ -21,12 +29,9 @@ fn recognize_list_expr(expr: MirExpr) -> MirExpr {
             }
             MirExpr::Seq(items)
         }
-        MirExpr::Choice(items) => MirExpr::Choice(
-            items
-                .into_iter()
-                .map(recognize_list_expr)
-                .collect(),
-        ),
+        MirExpr::Choice(items) => {
+            MirExpr::Choice(items.into_iter().map(recognize_list_expr).collect())
+        }
         MirExpr::Dispatch(arms) => MirExpr::Dispatch(
             arms.into_iter()
                 .map(|arm| crate::mir::DispatchArm {
@@ -40,8 +45,12 @@ fn recognize_list_expr(expr: MirExpr) -> MirExpr {
             min,
             max,
         },
-        MirExpr::PosLookahead(inner) => MirExpr::PosLookahead(Box::new(recognize_list_expr(*inner))),
-        MirExpr::NegLookahead(inner) => MirExpr::NegLookahead(Box::new(recognize_list_expr(*inner))),
+        MirExpr::PosLookahead(inner) => {
+            MirExpr::PosLookahead(Box::new(recognize_list_expr(*inner)))
+        }
+        MirExpr::NegLookahead(inner) => {
+            MirExpr::NegLookahead(Box::new(recognize_list_expr(*inner)))
+        }
         MirExpr::WithFlag { flag, body } => MirExpr::WithFlag {
             flag,
             body: Box::new(recognize_list_expr(*body)),

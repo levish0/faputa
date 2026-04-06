@@ -1,6 +1,6 @@
 mod gen_data;
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use pest::Parser as PestParser;
 
 use format_bench::{manual_csv, manual_http, manual_ini, manual_json};

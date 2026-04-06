@@ -4,16 +4,16 @@ mod state;
 mod statement;
 
 use faputa_meta::ast::Grammar;
-use faputa_meta::ir;
+use faputa_meta::hir;
 use faputa_meta::mir::{self, MirProgram};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
 #[tracing::instrument(skip_all)]
 fn generate_module_inner(grammar: &Grammar) -> TokenStream {
-    let ir = ir::lower(grammar);
-    let ir = ir::optimize(ir);
-    let mir = mir::lower(&ir);
+    let hir = hir::lower(grammar);
+    let hir = hir::optimize(hir);
+    let mir = mir::lower(&hir);
     let mir = mir::optimize(mir);
 
     let state_code = state::generate_state(&mir);

@@ -6,7 +6,7 @@ mod scan;
 #[cfg(test)]
 mod tests;
 
-use crate::ir::CharRange;
+use crate::hir::CharRange;
 
 use super::MirProgram;
 
