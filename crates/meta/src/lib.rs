@@ -12,7 +12,14 @@ pub mod validator;
 #[tracing::instrument(skip_all, fields(source_len = source.len()))]
 pub fn compile(source: &str) -> Result<ast::Grammar, CompileError> {
     let grammar = parser::parse(source).map_err(CompileError::Parse)?;
-    tracing::debug!(rules = grammar.items.iter().filter(|i| matches!(i, ast::Item::RuleDef(_))).count(), "parsed grammar");
+    tracing::debug!(
+        rules = grammar
+            .items
+            .iter()
+            .filter(|i| matches!(i, ast::Item::RuleDef(_)))
+            .count(),
+        "parsed grammar"
+    );
     validator::validate(&grammar).map_err(CompileError::Validation)?;
     tracing::debug!("validation passed");
     Ok(grammar)

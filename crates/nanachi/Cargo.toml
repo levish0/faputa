@@ -1,6 +1,6 @@
 [package]
 name = "nanachi"
-description = "A stateful parser generator"
+description = "A stateful parser generator."
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

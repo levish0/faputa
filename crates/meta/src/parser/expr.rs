@@ -1,8 +1,8 @@
-use crate::ast::*;
-use crate::lexer::{self, Token};
 use super::error::ParseError;
 use super::statement::parse_guard_condition;
 use super::tokens::TokenStream;
+use crate::ast::*;
+use crate::lexer::{self, Token};
 
 /// Choice: `a | b | c`
 pub(crate) fn parse_choice(tokens: &mut TokenStream<'_>) -> Result<Expr, ParseError> {
