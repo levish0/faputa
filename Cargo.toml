@@ -3,7 +3,7 @@ members = ["crates/*", "xtask", "fuzz", "tests/e2e", "examples/parse_demo", "exa
 resolver = "3"
 
 [workspace.package]
-version = "0.1.4"
+version = "0.1.5"
 authors = ["Levi Laine <shiueo.csh@gmail.com>"]
 license = "Apache-2.0"
 repository = "https://github.com/levish0/faputa"
@@ -16,12 +16,12 @@ readme = "README.md"
 
 [workspace.dependencies]
 # Internal crates
-faputa = { path = "crates/faputa", version = "0.1.4" }
-faputa_meta = { path = "crates/meta", version = "0.1.4" }
-faputa_generator = { path = "crates/generator", version = "0.1.4" }
-faputa_derive = { path = "crates/derive", version = "0.1.4" }
-faputa_vm = { path = "crates/vm", version = "0.1.4" }
-faputa_debugger = { path = "crates/debugger", version = "0.1.4" }
+faputa = { path = "crates/faputa", version = "0.1.5" }
+faputa_meta = { path = "crates/meta", version = "0.1.5" }
+faputa_generator = { path = "crates/generator", version = "0.1.5" }
+faputa_derive = { path = "crates/derive", version = "0.1.5" }
+faputa_vm = { path = "crates/vm", version = "0.1.5" }
+faputa_debugger = { path = "crates/debugger", version = "0.1.5" }
 
 # External dependencies
 winnow = { version = "1.0.1", features = ["simd"] }
@@ -37,7 +37,7 @@ pest_derive = "2.8.6"
 serde_json = "1.0.149"
 criterion = "0.8.2"
 trybuild = "1.0.116"
-tracing = "0.1.44"
+tracing = "0.1.54"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 
 [profile.dev]
