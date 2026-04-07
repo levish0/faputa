@@ -48,6 +48,11 @@ fn recognize_scan_expr(expr: MirExpr, rules: &[MirRule]) -> MirExpr {
                 max,
             }
         }
+        MirExpr::RepeatDynamic { expr, min, max } => MirExpr::RepeatDynamic {
+            expr: Box::new(recognize_scan_expr(*expr, rules)),
+            min,
+            max,
+        },
         MirExpr::Loop { body, min } => MirExpr::Loop {
             body: Box::new(recognize_scan_expr(*body, rules)),
             min,
@@ -73,6 +78,19 @@ fn recognize_scan_expr(expr: MirExpr, rules: &[MirRule]) -> MirExpr {
         },
         MirExpr::When { condition, body } => MirExpr::When {
             condition,
+            body: Box::new(recognize_scan_expr(*body, rules)),
+        },
+        MirExpr::If {
+            condition,
+            then_body,
+            else_body,
+        } => MirExpr::If {
+            condition,
+            then_body: Box::new(recognize_scan_expr(*then_body, rules)),
+            else_body: Box::new(recognize_scan_expr(*else_body, rules)),
+        },
+        MirExpr::Measure { counter, body } => MirExpr::Measure {
+            counter,
             body: Box::new(recognize_scan_expr(*body, rules)),
         },
         MirExpr::DepthLimit { limit, body } => MirExpr::DepthLimit {
@@ -174,7 +192,18 @@ fn single_char_consumption_ranges(
         MirExpr::TakeWhile { ranges, min, max } if *min == 1 && *max == Some(1) => {
             Some(ranges.clone())
         }
-        MirExpr::Labeled { expr, .. } => single_char_consumption_ranges(expr, rules, visiting),
+        MirExpr::If {
+            then_body,
+            else_body,
+            ..
+        } => {
+            let mut ranges = single_char_consumption_ranges(then_body, rules, visiting)?;
+            ranges.extend(single_char_consumption_ranges(else_body, rules, visiting)?);
+            Some(super::coalesce_ranges(ranges))
+        }
+        MirExpr::Measure { body, .. } | MirExpr::Labeled { expr: body, .. } => {
+            single_char_consumption_ranges(body, rules, visiting)
+        }
         _ => None,
     }
 }
@@ -210,7 +239,18 @@ fn single_char_set(
             }
             Some(super::coalesce_ranges(ranges))
         }
-        MirExpr::Labeled { expr, .. } => single_char_set(expr, rules, visiting),
+        MirExpr::If {
+            then_body,
+            else_body,
+            ..
+        } => {
+            let mut ranges = single_char_set(then_body, rules, visiting)?;
+            ranges.extend(single_char_set(else_body, rules, visiting)?);
+            Some(super::coalesce_ranges(ranges))
+        }
+        MirExpr::Measure { body, .. } | MirExpr::Labeled { expr: body, .. } => {
+            single_char_set(body, rules, visiting)
+        }
         _ => None,
     }
 }

@@ -69,13 +69,10 @@ fn generate_entry(ir: &MirProgram) -> TokenStream {
             quote! {
                 pub fn #parse_fn(source: &str) -> Result<&str, String> {
                     let state = ParseState::new(source);
-                    let mut input = Input {
-                        input: faputa::LocatingSlice::new(source),
-                        state,
-                    };
+                    let mut input = Input::new(source, state);
                     let matched = #rule_fn.take().parse_next(&mut input)
                         .map_err(|e| {
-                            let offset = input.state.furthest_pos();
+                            let offset = input.furthest_pos();
                             let line_index = LineIndex::new(source);
                             let (line, col) = line_index.line_col(offset);
                             let inner = match e {

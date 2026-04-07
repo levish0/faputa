@@ -1,3 +1,5 @@
+use super::NumericExpr;
+
 /// Stateful statements that precede the main expression in a rule body.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
@@ -22,7 +24,7 @@ pub enum GuardCondition {
     Compare {
         name: String,
         op: CompareOp,
-        value: u32,
+        value: NumericExpr,
     },
 }
 

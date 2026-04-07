@@ -1,0 +1,33 @@
+// Dynamic counter-driven parsing and rollback-safe stateful branching.
+
+let counter seen
+let counter width
+let counter limit
+
+entry = { probe | fallback }
+
+probe = {
+    emit seen
+    "a" "x"
+}
+
+fallback = {
+    if seen == 0 { "ab" } else { "nope" }
+}
+
+fence = {
+    measure width { "`"{3,} }
+    "x"
+    "`"{width}
+}
+
+exact_count = {
+    with limit += 3 {
+        "x"{limit}
+    }
+}
+
+branch = {
+    emit seen
+    if seen > 0 { "b" } else { "a" }
+}

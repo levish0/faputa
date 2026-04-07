@@ -33,6 +33,11 @@ fn recognize_take_while_expr(expr: MirExpr) -> MirExpr {
             body: Box::new(recognize_take_while_expr(*body)),
             min,
         },
+        MirExpr::RepeatDynamic { expr, min, max } => MirExpr::RepeatDynamic {
+            expr: Box::new(recognize_take_while_expr(*expr)),
+            min,
+            max,
+        },
         MirExpr::Seq(items) => {
             MirExpr::Seq(items.into_iter().map(recognize_take_while_expr).collect())
         }
@@ -68,6 +73,19 @@ fn recognize_take_while_expr(expr: MirExpr) -> MirExpr {
         },
         MirExpr::When { condition, body } => MirExpr::When {
             condition,
+            body: Box::new(recognize_take_while_expr(*body)),
+        },
+        MirExpr::If {
+            condition,
+            then_body,
+            else_body,
+        } => MirExpr::If {
+            condition,
+            then_body: Box::new(recognize_take_while_expr(*then_body)),
+            else_body: Box::new(recognize_take_while_expr(*else_body)),
+        },
+        MirExpr::Measure { counter, body } => MirExpr::Measure {
+            counter,
             body: Box::new(recognize_take_while_expr(*body)),
         },
         MirExpr::DepthLimit { limit, body } => MirExpr::DepthLimit {

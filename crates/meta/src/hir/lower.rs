@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 
 use super::{Boundary, CharRange, HirExpr, HirProgram, HirRule};
+use crate::ast::NumericExpr;
 use crate::ast::{self, BuiltinPredicate, Expr, Grammar, Item, RepeatKind, Statement};
 
 /// Lower a validated AST Grammar to a HIR program.
@@ -112,22 +113,7 @@ fn lower_expr(expr: &Expr, indices: &HashMap<&str, usize>) -> HirExpr {
             }
         }
 
-        Expr::Repeat { expr, kind } => {
-            let (min, max) = match kind {
-                RepeatKind::ZeroOrMore => (0, None),
-                RepeatKind::OneOrMore => (1, None),
-                RepeatKind::Optional => (0, Some(1)),
-                RepeatKind::Exact(n) => (*n, Some(*n)),
-                RepeatKind::AtLeast(n) => (*n, None),
-                RepeatKind::AtMost(m) => (0, Some(*m)),
-                RepeatKind::Range(n, m) => (*n, Some(*m)),
-            };
-            HirExpr::Repeat {
-                expr: Box::new(lower_expr(expr, indices)),
-                min,
-                max,
-            }
-        }
+        Expr::Repeat { expr, kind } => lower_repeat(kind, expr, indices),
 
         Expr::PosLookahead(inner) => HirExpr::PosLookahead(Box::new(lower_expr(inner, indices))),
 
@@ -148,7 +134,7 @@ fn lower_expr(expr: &Expr, indices: &HashMap<&str, usize>) -> HirExpr {
 
         Expr::WithIncrement(w) => HirExpr::WithCounter {
             counter: w.counter.clone(),
-            amount: w.amount,
+            amount: w.amount.clone(),
             body: Box::new(lower_expr(&w.body, indices)),
         },
 
@@ -157,9 +143,90 @@ fn lower_expr(expr: &Expr, indices: &HashMap<&str, usize>) -> HirExpr {
             body: Box::new(lower_expr(&w.body, indices)),
         },
 
+        Expr::If(w) => HirExpr::If {
+            condition: w.condition.clone(),
+            then_body: Box::new(lower_expr(&w.then_body, indices)),
+            else_body: Box::new(lower_expr(&w.else_body, indices)),
+        },
+
+        Expr::Measure(w) => HirExpr::Measure {
+            counter: w.counter.clone(),
+            body: Box::new(lower_expr(&w.body, indices)),
+        },
+
         Expr::DepthLimit(d) => HirExpr::DepthLimit {
-            limit: d.limit,
+            limit: d.limit.clone(),
             body: Box::new(lower_expr(&d.body, indices)),
+        },
+    }
+}
+
+fn lower_repeat(kind: &RepeatKind, expr: &Expr, indices: &HashMap<&str, usize>) -> HirExpr {
+    let lowered = Box::new(lower_expr(expr, indices));
+
+    match kind {
+        RepeatKind::ZeroOrMore => HirExpr::Repeat {
+            expr: lowered,
+            min: 0,
+            max: None,
+        },
+        RepeatKind::OneOrMore => HirExpr::Repeat {
+            expr: lowered,
+            min: 1,
+            max: None,
+        },
+        RepeatKind::Optional => HirExpr::Repeat {
+            expr: lowered,
+            min: 0,
+            max: Some(1),
+        },
+        RepeatKind::Exact(value) => match value.as_literal() {
+            Some(n) => HirExpr::Repeat {
+                expr: lowered,
+                min: n,
+                max: Some(n),
+            },
+            None => HirExpr::RepeatDynamic {
+                expr: lowered,
+                min: value.clone(),
+                max: Some(value.clone()),
+            },
+        },
+        RepeatKind::AtLeast(value) => match value.as_literal() {
+            Some(n) => HirExpr::Repeat {
+                expr: lowered,
+                min: n,
+                max: None,
+            },
+            None => HirExpr::RepeatDynamic {
+                expr: lowered,
+                min: value.clone(),
+                max: None,
+            },
+        },
+        RepeatKind::AtMost(value) => match value.as_literal() {
+            Some(m) => HirExpr::Repeat {
+                expr: lowered,
+                min: 0,
+                max: Some(m),
+            },
+            None => HirExpr::RepeatDynamic {
+                expr: lowered,
+                min: NumericExpr::Literal(0),
+                max: Some(value.clone()),
+            },
+        },
+        RepeatKind::Range(min, max) => match (min.as_literal(), max.as_literal()) {
+            (Some(min), Some(max)) => HirExpr::Repeat {
+                expr: lowered,
+                min,
+                max: Some(max),
+            },
+            _ => HirExpr::RepeatDynamic {
+                expr: lowered,
+                min: min.clone(),
+                max: Some(max.clone()),
+            },
         },
     }
 }

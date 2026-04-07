@@ -1,1 +1,1 @@
-rule = { "x"{1,foo} }
+rule = { "x"{1,foo,} }

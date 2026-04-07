@@ -2,6 +2,7 @@ use crate::ast::{BuiltinPredicate, CompareOp, EmitStmt, GuardCondition, GuardStm
 use crate::lexer::Token;
 
 use super::error::ParseError;
+use super::expr::parse_numeric_expr;
 use super::tokens::TokenStream;
 
 pub(crate) fn parse_statements(tokens: &mut TokenStream<'_>) -> Result<Vec<Statement>, ParseError> {
@@ -60,7 +61,7 @@ pub(crate) fn parse_guard_condition(
                     Token::Gt | Token::Lt | Token::Ge | Token::Le | Token::EqEq | Token::BangEq,
                 ) => {
                     let op = parse_compare_op(tokens)?;
-                    let value = tokens.expect_number()?;
+                    let value = parse_numeric_expr(tokens)?;
                     Ok(GuardCondition::Compare { name, op, value })
                 }
                 _ => Ok(GuardCondition::IsFlag(name)),

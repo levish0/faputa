@@ -49,6 +49,11 @@ fn recognize_list_expr(expr: MirExpr) -> MirExpr {
             min,
             max,
         },
+        MirExpr::RepeatDynamic { expr, min, max } => MirExpr::RepeatDynamic {
+            expr: Box::new(recognize_list_expr(*expr)),
+            min,
+            max,
+        },
         MirExpr::Loop { body, min } => MirExpr::Loop {
             body: Box::new(recognize_list_expr(*body)),
             min,
@@ -74,6 +79,19 @@ fn recognize_list_expr(expr: MirExpr) -> MirExpr {
         },
         MirExpr::When { condition, body } => MirExpr::When {
             condition,
+            body: Box::new(recognize_list_expr(*body)),
+        },
+        MirExpr::If {
+            condition,
+            then_body,
+            else_body,
+        } => MirExpr::If {
+            condition,
+            then_body: Box::new(recognize_list_expr(*then_body)),
+            else_body: Box::new(recognize_list_expr(*else_body)),
+        },
+        MirExpr::Measure { counter, body } => MirExpr::Measure {
+            counter,
             body: Box::new(recognize_list_expr(*body)),
         },
         MirExpr::DepthLimit { limit, body } => MirExpr::DepthLimit {

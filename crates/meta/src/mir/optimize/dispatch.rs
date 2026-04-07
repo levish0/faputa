@@ -45,6 +45,11 @@ fn recognize_dispatch_expr(expr: MirExpr, rules: &[MirRule]) -> MirExpr {
             min,
             max,
         },
+        MirExpr::RepeatDynamic { expr, min, max } => MirExpr::RepeatDynamic {
+            expr: Box::new(recognize_dispatch_expr(*expr, rules)),
+            min,
+            max,
+        },
         MirExpr::Loop { body, min } => MirExpr::Loop {
             body: Box::new(recognize_dispatch_expr(*body, rules)),
             min,
@@ -70,6 +75,19 @@ fn recognize_dispatch_expr(expr: MirExpr, rules: &[MirRule]) -> MirExpr {
         },
         MirExpr::When { condition, body } => MirExpr::When {
             condition,
+            body: Box::new(recognize_dispatch_expr(*body, rules)),
+        },
+        MirExpr::If {
+            condition,
+            then_body,
+            else_body,
+        } => MirExpr::If {
+            condition,
+            then_body: Box::new(recognize_dispatch_expr(*then_body, rules)),
+            else_body: Box::new(recognize_dispatch_expr(*else_body, rules)),
+        },
+        MirExpr::Measure { counter, body } => MirExpr::Measure {
+            counter,
             body: Box::new(recognize_dispatch_expr(*body, rules)),
         },
         MirExpr::DepthLimit { limit, body } => MirExpr::DepthLimit {
@@ -245,6 +263,13 @@ fn first_chars(expr: &MirExpr, rules: &[MirRule], visiting: &mut Vec<usize>) -> 
                 nullable: *min == 0 || first.nullable,
             })
         }
+        MirExpr::RepeatDynamic { expr, .. } => {
+            let first = first_chars(expr, rules, visiting)?;
+            Some(FirstChars {
+                ranges: first.ranges,
+                nullable: true,
+            })
+        }
         MirExpr::Loop { body, min } => {
             let first = first_chars(body, rules, visiting)?;
             Some(FirstChars {
@@ -262,9 +287,24 @@ fn first_chars(expr: &MirExpr, rules: &[MirRule], visiting: &mut Vec<usize>) -> 
         MirExpr::NegLookahead(_) => None,
         MirExpr::WithFlag { body, .. }
         | MirExpr::WithCounter { body, .. }
+        | MirExpr::Measure { body, .. }
         | MirExpr::DepthLimit { body, .. }
         | MirExpr::Labeled { expr: body, .. } => first_chars(body, rules, visiting),
         MirExpr::When { .. } => None,
+        MirExpr::If {
+            then_body,
+            else_body,
+            ..
+        } => {
+            let then_first = first_chars(then_body, rules, visiting)?;
+            let else_first = first_chars(else_body, rules, visiting)?;
+            let mut ranges = then_first.ranges;
+            ranges.extend(else_first.ranges);
+            Some(FirstChars {
+                ranges: super::coalesce_ranges(ranges),
+                nullable: then_first.nullable || else_first.nullable,
+            })
+        }
         MirExpr::TakeWhile { ranges, min, .. } => Some(FirstChars {
             ranges: super::coalesce_ranges(ranges.clone()),
             nullable: *min == 0,
@@ -318,7 +358,18 @@ fn single_char_set(
             }
             Some(super::coalesce_ranges(ranges))
         }
-        MirExpr::Labeled { expr, .. } => single_char_set(expr, rules, visiting),
+        MirExpr::If {
+            then_body,
+            else_body,
+            ..
+        } => {
+            let mut ranges = single_char_set(then_body, rules, visiting)?;
+            ranges.extend(single_char_set(else_body, rules, visiting)?);
+            Some(super::coalesce_ranges(ranges))
+        }
+        MirExpr::Measure { body, .. } | MirExpr::Labeled { expr: body, .. } => {
+            single_char_set(body, rules, visiting)
+        }
         _ => None,
     }
 }

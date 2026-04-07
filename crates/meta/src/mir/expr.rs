@@ -1,4 +1,4 @@
-use crate::ast::GuardCondition;
+use crate::ast::{GuardCondition, NumericExpr};
 use crate::hir::{Boundary, CharRange};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -19,6 +19,12 @@ pub enum MirExpr {
         max: Option<u32>,
     },
 
+    RepeatDynamic {
+        expr: Box<MirExpr>,
+        min: NumericExpr,
+        max: Option<NumericExpr>,
+    },
+
     Loop {
         body: Box<MirExpr>,
         min: u32,
@@ -34,7 +40,7 @@ pub enum MirExpr {
 
     WithCounter {
         counter: String,
-        amount: u32,
+        amount: NumericExpr,
         body: Box<MirExpr>,
     },
 
@@ -43,8 +49,19 @@ pub enum MirExpr {
         body: Box<MirExpr>,
     },
 
+    If {
+        condition: GuardCondition,
+        then_body: Box<MirExpr>,
+        else_body: Box<MirExpr>,
+    },
+
+    Measure {
+        counter: String,
+        body: Box<MirExpr>,
+    },
+
     DepthLimit {
-        limit: u32,
+        limit: NumericExpr,
         body: Box<MirExpr>,
     },
 

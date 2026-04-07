@@ -41,7 +41,7 @@ fn generate_rule(rule: &MirRule, ir: &MirProgram) -> TokenStream {
         if has_statements {
             quote! {
                 fn #fn_name<'i>(input: &mut Input<'i, ParseState<'i>>) -> ModalResult<()> {
-                    input.state.track_pos(input.current_token_start());
+                    input.track_pos(input.current_token_start());
                     winnow::combinator::trace(#label, |input: &mut Input<'i, ParseState<'i>>| {
                         #guard_code
                         (#expr_code).void().parse_next(input)
@@ -53,7 +53,7 @@ fn generate_rule(rule: &MirRule, ir: &MirProgram) -> TokenStream {
         } else {
             quote! {
                 fn #fn_name<'i>(input: &mut Input<'i, ParseState<'i>>) -> ModalResult<()> {
-                    input.state.track_pos(input.current_token_start());
+                    input.track_pos(input.current_token_start());
                     winnow::combinator::trace(#label, (#expr_code).void())
                         .context(StrContext::Label(#label))
                         .parse_next(input)
@@ -65,7 +65,7 @@ fn generate_rule(rule: &MirRule, ir: &MirProgram) -> TokenStream {
         if has_statements {
             quote! {
                 fn #fn_name<'i>(input: &mut Input<'i, ParseState<'i>>) -> ModalResult<()> {
-                    input.state.track_pos(input.current_token_start());
+                    input.track_pos(input.current_token_start());
                     (|input: &mut Input<'i, ParseState<'i>>| {
                         #guard_code
                         (#expr_code).void().parse_next(input)
@@ -77,7 +77,7 @@ fn generate_rule(rule: &MirRule, ir: &MirProgram) -> TokenStream {
         } else {
             quote! {
                 fn #fn_name<'i>(input: &mut Input<'i, ParseState<'i>>) -> ModalResult<()> {
-                    input.state.track_pos(input.current_token_start());
+                    input.track_pos(input.current_token_start());
                     (#expr_code).void()
                         .context(StrContext::Label(#label))
                         .parse_next(input)
@@ -89,7 +89,7 @@ fn generate_rule(rule: &MirRule, ir: &MirProgram) -> TokenStream {
         if has_statements {
             quote! {
                 fn #fn_name<'i>(input: &mut Input<'i, ParseState<'i>>) -> ModalResult<()> {
-                    input.state.track_pos(input.current_token_start());
+                    input.track_pos(input.current_token_start());
                     (|input: &mut Input<'i, ParseState<'i>>| {
                         #guard_code
                         (#expr_code).void().parse_next(input)
@@ -100,7 +100,7 @@ fn generate_rule(rule: &MirRule, ir: &MirProgram) -> TokenStream {
         } else {
             quote! {
                 fn #fn_name<'i>(input: &mut Input<'i, ParseState<'i>>) -> ModalResult<()> {
-                    input.state.track_pos(input.current_token_start());
+                    input.track_pos(input.current_token_start());
                     (#expr_code).void()
                         .parse_next(input)
                 }

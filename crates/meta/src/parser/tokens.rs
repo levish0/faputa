@@ -74,13 +74,6 @@ impl<'src> TokenStream<'src> {
         }
     }
 
-    pub fn expect_number(&mut self) -> Result<u32, ParseError> {
-        match self.advance() {
-            Some(Token::Number(n)) => Ok(n),
-            other => Err(self.error(format!("expected number, got {other:?}"))),
-        }
-    }
-
     pub fn error(&self, message: String) -> ParseError {
         ParseError {
             message,

@@ -1,5 +1,20 @@
 use super::{BuiltinPredicate, GuardCondition};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NumericExpr {
+    Literal(u32),
+    Counter(String),
+}
+
+impl NumericExpr {
+    pub fn as_literal(&self) -> Option<u32> {
+        match self {
+            Self::Literal(value) => Some(*value),
+            Self::Counter(_) => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     /// `"literal"`
@@ -41,6 +56,12 @@ pub enum Expr {
     /// `when condition { expr }`
     When(WhenExpr),
 
+    /// `if condition { then } else { else }`
+    If(IfExpr),
+
+    /// `measure counter_name { expr }`
+    Measure(MeasureExpr),
+
     /// `depth_limit(n) { expr }`
     DepthLimit(DepthLimitExpr),
 
@@ -57,13 +78,13 @@ pub enum RepeatKind {
     /// `p?`
     Optional,
     /// `p{n}`
-    Exact(u32),
+    Exact(NumericExpr),
     /// `p{n,}`
-    AtLeast(u32),
+    AtLeast(NumericExpr),
     /// `p{,m}`
-    AtMost(u32),
+    AtMost(NumericExpr),
     /// `p{n,m}`
-    Range(u32, u32),
+    Range(NumericExpr, NumericExpr),
 }
 
 // ── Stateful expressions ──
@@ -77,7 +98,7 @@ pub struct WithExpr {
 #[derive(Debug, Clone, PartialEq)]
 pub struct WithIncrementExpr {
     pub counter: String,
-    pub amount: u32,
+    pub amount: NumericExpr,
     pub body: Box<Expr>,
 }
 
@@ -88,7 +109,20 @@ pub struct WhenExpr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct IfExpr {
+    pub condition: GuardCondition,
+    pub then_body: Box<Expr>,
+    pub else_body: Box<Expr>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MeasureExpr {
+    pub counter: String,
+    pub body: Box<Expr>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct DepthLimitExpr {
-    pub limit: u32,
+    pub limit: NumericExpr,
     pub body: Box<Expr>,
 }

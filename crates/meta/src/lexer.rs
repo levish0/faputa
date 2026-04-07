@@ -24,6 +24,12 @@ pub enum Token<'src> {
     Emit,
     #[token("when")]
     When,
+    #[token("if")]
+    If,
+    #[token("else")]
+    Else,
+    #[token("measure")]
+    Measure,
     #[token("depth_limit")]
     DepthLimit,
 

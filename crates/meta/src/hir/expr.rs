@@ -1,4 +1,4 @@
-use crate::ast::GuardCondition;
+use crate::ast::{GuardCondition, NumericExpr};
 
 /// HIR expression — grammar semantics after lowering and semantic cleanup.
 ///
@@ -6,7 +6,8 @@ use crate::ast::GuardCondition;
 /// - No `Group` (purely syntactic in AST)
 /// - `CharSet` replaces individual `CharRange` (mergeable)
 /// - `RuleRef(usize)` replaces `Ident(String)` (resolved)
-/// - Unified `Repeat { min, max }` replaces all repeat variants
+/// - Static repeats are normalized to `Repeat { min, max }`
+/// - Dynamic repeats preserve runtime counter bounds in `RepeatDynamic`
 /// - Stateful guards/emits are separate from the expression tree
 #[derive(Debug, Clone, PartialEq)]
 pub enum HirExpr {
@@ -43,6 +44,13 @@ pub enum HirExpr {
         max: Option<u32>,
     },
 
+    /// Repetition with runtime counter bounds.
+    RepeatDynamic {
+        expr: Box<HirExpr>,
+        min: NumericExpr,
+        max: Option<NumericExpr>,
+    },
+
     /// Positive lookahead (zero-width).
     PosLookahead(Box<HirExpr>),
 
@@ -56,7 +64,7 @@ pub enum HirExpr {
     /// Increment counter, run body, decrement on exit.
     WithCounter {
         counter: String,
-        amount: u32,
+        amount: NumericExpr,
         body: Box<HirExpr>,
     },
 
@@ -66,8 +74,21 @@ pub enum HirExpr {
         body: Box<HirExpr>,
     },
 
+    /// Run exactly one branch depending on the current parser state.
+    If {
+        condition: GuardCondition,
+        then_body: Box<HirExpr>,
+        else_body: Box<HirExpr>,
+    },
+
+    /// Record the number of consumed characters in a counter on success.
+    Measure { counter: String, body: Box<HirExpr> },
+
     /// Fail if recursion depth exceeds limit.
-    DepthLimit { limit: u32, body: Box<HirExpr> },
+    DepthLimit {
+        limit: NumericExpr,
+        body: Box<HirExpr>,
+    },
 
     /// User-defined error label: `expr @ "custom message"`.
     ///

@@ -112,8 +112,8 @@ fn try_parse_repeat_bounds(tokens: &mut TokenStream<'_>) -> Result<Option<Repeat
     tokens.advance(); // consume `{`
 
     match tokens.peek() {
-        Some(Token::Number(_)) => {
-            let n = tokens.expect_number()?;
+        Some(Token::Number(_)) | Some(Token::Ident(_)) => {
+            let n = parse_numeric_expr(tokens)?;
             match tokens.peek() {
                 Some(Token::RBrace) => {
                     tokens.advance();
@@ -126,8 +126,8 @@ fn try_parse_repeat_bounds(tokens: &mut TokenStream<'_>) -> Result<Option<Repeat
                             tokens.advance();
                             Ok(Some(RepeatKind::AtLeast(n)))
                         }
-                        Some(Token::Number(_)) => {
-                            let m = tokens.expect_number()?;
+                        Some(Token::Number(_)) | Some(Token::Ident(_)) => {
+                            let m = parse_numeric_expr(tokens)?;
                             tokens.expect(&Token::RBrace)?;
                             Ok(Some(RepeatKind::Range(n, m)))
                         }
@@ -145,7 +145,7 @@ fn try_parse_repeat_bounds(tokens: &mut TokenStream<'_>) -> Result<Option<Repeat
         }
         Some(Token::Comma) => {
             tokens.advance();
-            let m = tokens.expect_number()?;
+            let m = parse_numeric_expr(tokens)?;
             tokens.expect(&Token::RBrace)?;
             Ok(Some(RepeatKind::AtMost(m)))
         }
@@ -232,8 +232,18 @@ fn parse_atom(tokens: &mut TokenStream<'_>) -> Result<Expr, ParseError> {
         }
         Some(Token::With) => parse_with_expr(tokens),
         Some(Token::When) => parse_when_expr(tokens),
+        Some(Token::If) => parse_if_expr(tokens),
+        Some(Token::Measure) => parse_measure_expr(tokens),
         Some(Token::DepthLimit) => parse_depth_limit_expr(tokens),
         other => Err(tokens.error(format!("expected expression, got {other:?}"))),
+    }
+}
+
+pub(crate) fn parse_numeric_expr(tokens: &mut TokenStream<'_>) -> Result<NumericExpr, ParseError> {
+    match tokens.advance() {
+        Some(Token::Number(n)) => Ok(NumericExpr::Literal(n)),
+        Some(Token::Ident(name)) => Ok(NumericExpr::Counter(name.to_string())),
+        other => Err(tokens.error(format!("expected number or counter name, got {other:?}"))),
     }
 }
 
@@ -244,7 +254,7 @@ fn parse_with_expr(tokens: &mut TokenStream<'_>) -> Result<Expr, ParseError> {
     match tokens.peek() {
         Some(Token::PlusEq) => {
             tokens.advance();
-            let amount = tokens.expect_number()?;
+            let amount = parse_numeric_expr(tokens)?;
             tokens.expect(&Token::LBrace)?;
 
             let body = parse_choice(tokens)?;
@@ -283,10 +293,39 @@ fn parse_when_expr(tokens: &mut TokenStream<'_>) -> Result<Expr, ParseError> {
     }))
 }
 
+fn parse_if_expr(tokens: &mut TokenStream<'_>) -> Result<Expr, ParseError> {
+    tokens.expect(&Token::If)?;
+    let condition = parse_guard_condition(tokens)?;
+    tokens.expect(&Token::LBrace)?;
+    let then_body = parse_choice(tokens)?;
+    tokens.expect(&Token::RBrace)?;
+    tokens.expect(&Token::Else)?;
+    tokens.expect(&Token::LBrace)?;
+    let else_body = parse_choice(tokens)?;
+    tokens.expect(&Token::RBrace)?;
+    Ok(Expr::If(IfExpr {
+        condition,
+        then_body: Box::new(then_body),
+        else_body: Box::new(else_body),
+    }))
+}
+
+fn parse_measure_expr(tokens: &mut TokenStream<'_>) -> Result<Expr, ParseError> {
+    tokens.expect(&Token::Measure)?;
+    let counter = tokens.expect_ident()?;
+    tokens.expect(&Token::LBrace)?;
+    let body = parse_choice(tokens)?;
+    tokens.expect(&Token::RBrace)?;
+    Ok(Expr::Measure(MeasureExpr {
+        counter,
+        body: Box::new(body),
+    }))
+}
+
 fn parse_depth_limit_expr(tokens: &mut TokenStream<'_>) -> Result<Expr, ParseError> {
     tokens.expect(&Token::DepthLimit)?;
     tokens.expect(&Token::LParen)?;
-    let limit = tokens.expect_number()?;
+    let limit = parse_numeric_expr(tokens)?;
     tokens.expect(&Token::RParen)?;
     tokens.expect(&Token::LBrace)?;
     let body = parse_choice(tokens)?;
@@ -314,6 +353,8 @@ fn is_at_expr_start(tokens: &TokenStream<'_>) -> bool {
                 | Token::Bang
                 | Token::With
                 | Token::When
+                | Token::If
+                | Token::Measure
                 | Token::DepthLimit
         )
     )

@@ -53,6 +53,11 @@ fn lower_expr(expr: &HirExpr) -> MirExpr {
             min: *min,
             max: *max,
         },
+        HirExpr::RepeatDynamic { expr, min, max } => MirExpr::RepeatDynamic {
+            expr: Box::new(lower_expr(expr)),
+            min: min.clone(),
+            max: max.clone(),
+        },
         HirExpr::PosLookahead(inner) => MirExpr::PosLookahead(Box::new(lower_expr(inner))),
         HirExpr::NegLookahead(inner) => MirExpr::NegLookahead(Box::new(lower_expr(inner))),
         HirExpr::WithFlag { flag, body } => MirExpr::WithFlag {
@@ -65,15 +70,28 @@ fn lower_expr(expr: &HirExpr) -> MirExpr {
             body,
         } => MirExpr::WithCounter {
             counter: counter.clone(),
-            amount: *amount,
+            amount: amount.clone(),
             body: Box::new(lower_expr(body)),
         },
         HirExpr::When { condition, body } => MirExpr::When {
             condition: condition.clone(),
             body: Box::new(lower_expr(body)),
         },
+        HirExpr::If {
+            condition,
+            then_body,
+            else_body,
+        } => MirExpr::If {
+            condition: condition.clone(),
+            then_body: Box::new(lower_expr(then_body)),
+            else_body: Box::new(lower_expr(else_body)),
+        },
+        HirExpr::Measure { counter, body } => MirExpr::Measure {
+            counter: counter.clone(),
+            body: Box::new(lower_expr(body)),
+        },
         HirExpr::DepthLimit { limit, body } => MirExpr::DepthLimit {
-            limit: *limit,
+            limit: limit.clone(),
             body: Box::new(lower_expr(body)),
         },
         HirExpr::Labeled { expr, label } => MirExpr::Labeled {

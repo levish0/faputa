@@ -184,6 +184,53 @@ fn generates_when_code() {
 }
 
 #[test]
+fn generates_if_code() {
+    let code = generate_code(
+        r#"
+        let counter depth
+        let counter limit
+        branch = {
+            if depth >= limit {
+                "x"
+            } else {
+                "y"
+            }
+        }
+    "#,
+    );
+    assert!(code.contains("if input . state . get_counter (\"depth\") >="));
+    assert!(code.contains("else"));
+}
+
+#[test]
+fn generates_measure_code() {
+    let code = generate_code(
+        r#"
+        let counter width
+        fence = {
+            measure width { "`"{3,} }
+        }
+    "#,
+    );
+    assert!(code.contains("matched . chars () . count ()"));
+    assert!(code.contains("set_counter (\"width\""));
+}
+
+#[test]
+fn generates_dynamic_repeat_code() {
+    let code = generate_code(
+        r#"
+        let counter width
+        fence = {
+            "x"{width,}
+        }
+    "#,
+    );
+    assert!(code.contains("let min = input . state . get_counter (\"width\")"));
+    assert!(code.contains("let checkpoint = input . checkpoint ()"));
+}
+
+#[test]
 fn generates_depth_limit_code() {
     let code = generate_code(
         r#"

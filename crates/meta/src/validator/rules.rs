@@ -104,6 +104,13 @@ fn check_expr_references(
         Expr::When(w) => {
             check_expr_references(&w.body, rule_name, ctx, errors);
         }
+        Expr::If(w) => {
+            check_expr_references(&w.then_body, rule_name, ctx, errors);
+            check_expr_references(&w.else_body, rule_name, ctx, errors);
+        }
+        Expr::Measure(w) => {
+            check_expr_references(&w.body, rule_name, ctx, errors);
+        }
         Expr::DepthLimit(d) => {
             check_expr_references(&d.body, rule_name, ctx, errors);
         }

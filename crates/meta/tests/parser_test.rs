@@ -36,6 +36,10 @@ fn parse_inline_expr(source: &str) -> Expr {
     rule.body.expr.clone()
 }
 
+fn num(value: u32) -> NumericExpr {
+    NumericExpr::Literal(value)
+}
+
 // ── Fixture-based tests ──
 
 #[test]
@@ -150,7 +154,7 @@ fn parse_depth_and_braces() {
     let Expr::DepthLimit(dl) = &doc.body.expr else {
         panic!("expected DepthLimit expr");
     };
-    assert_eq!(dl.limit, 64);
+    assert_eq!(dl.limit, num(64));
 
     // raw_block uses with increment
     let Item::RuleDef(raw) = &grammar.items[3] else {
@@ -192,7 +196,7 @@ fn parse_when_conditional() {
         GuardCondition::Compare {
             name: "trim_brace_depth".to_string(),
             op: CompareOp::Gt,
-            value: 0,
+            value: num(0),
         }
     );
 }
@@ -215,7 +219,7 @@ fn parse_chaos_combo_fixture() {
     let Expr::DepthLimit(limit) = &document.body.expr else {
         panic!("expected DepthLimit");
     };
-    assert_eq!(limit.limit, 4);
+    assert_eq!(limit.limit, num(4));
 
     let Item::RuleDef(tag) = &grammar.items[4] else {
         panic!("expected RuleDef");
@@ -231,7 +235,7 @@ fn parse_chaos_combo_fixture() {
     assert!(matches!(
         &seq[2],
         Expr::WithIncrement(WithIncrementExpr { counter, amount, .. })
-            if counter == "nesting" && *amount == 1
+            if counter == "nesting" && *amount == num(1)
     ));
 
     let Item::RuleDef(escaped) = &grammar.items[6] else {
@@ -289,7 +293,7 @@ fn parse_repeat_range() {
         rule.body.expr,
         Expr::Repeat {
             expr: Box::new(Expr::StringLit("#".to_string())),
-            kind: RepeatKind::Range(1, 6),
+            kind: RepeatKind::Range(num(1), num(6)),
         }
     );
 }
@@ -329,22 +333,80 @@ fn parse_repeat_variants() {
         parse_inline_expr(r#"exact = { "x"{2} }"#),
         Expr::Repeat {
             expr: Box::new(Expr::StringLit("x".to_string())),
-            kind: RepeatKind::Exact(2),
+            kind: RepeatKind::Exact(num(2)),
         }
     );
     assert_eq!(
         parse_inline_expr(r#"at_least = { "x"{2,} }"#),
         Expr::Repeat {
             expr: Box::new(Expr::StringLit("x".to_string())),
-            kind: RepeatKind::AtLeast(2),
+            kind: RepeatKind::AtLeast(num(2)),
         }
     );
     assert_eq!(
         parse_inline_expr(r#"at_most = { "x"{,3} }"#),
         Expr::Repeat {
             expr: Box::new(Expr::StringLit("x".to_string())),
-            kind: RepeatKind::AtMost(3),
+            kind: RepeatKind::AtMost(num(3)),
         }
+    );
+}
+
+#[test]
+fn parse_dynamic_numeric_expressions() {
+    assert_eq!(
+        parse_inline_expr(r#"rule = { "x"{depth,limit} }"#),
+        Expr::Repeat {
+            expr: Box::new(Expr::StringLit("x".to_string())),
+            kind: RepeatKind::Range(
+                NumericExpr::Counter("depth".to_string()),
+                NumericExpr::Counter("limit".to_string()),
+            ),
+        }
+    );
+
+    assert_eq!(
+        parse_inline_expr(r#"rule = { with depth += width { "x" } }"#),
+        Expr::WithIncrement(WithIncrementExpr {
+            counter: "depth".to_string(),
+            amount: NumericExpr::Counter("width".to_string()),
+            body: Box::new(Expr::StringLit("x".to_string())),
+        })
+    );
+
+    assert_eq!(
+        parse_inline_expr(r#"rule = { depth_limit(limit) { "x" } }"#),
+        Expr::DepthLimit(DepthLimitExpr {
+            limit: NumericExpr::Counter("limit".to_string()),
+            body: Box::new(Expr::StringLit("x".to_string())),
+        })
+    );
+}
+
+#[test]
+fn parse_measure_and_if_exprs() {
+    assert_eq!(
+        parse_inline_expr(r#"rule = { measure width { "x"+ } }"#),
+        Expr::Measure(MeasureExpr {
+            counter: "width".to_string(),
+            body: Box::new(Expr::Repeat {
+                expr: Box::new(Expr::StringLit("x".to_string())),
+                kind: RepeatKind::OneOrMore,
+            }),
+        })
+    );
+
+    assert_eq!(
+        parse_inline_expr(r#"rule = { if depth >= limit { "x" } else { "y" } }"#),
+        Expr::If(IfExpr {
+            condition: GuardCondition::Compare {
+                name: "depth".to_string(),
+                op: CompareOp::Ge,
+                value: NumericExpr::Counter("limit".to_string()),
+            },
+            then_body: Box::new(Expr::StringLit("x".to_string())),
+            else_body: Box::new(Expr::StringLit("y".to_string())),
+        })
     );
 }
 
@@ -422,7 +484,7 @@ rule = { depth_limit(3) { with inside { when depth > 0 { inner } } } }
     let Expr::DepthLimit(depth_limit) = &rule.body.expr else {
         panic!("expected DepthLimit expr");
     };
-    assert_eq!(depth_limit.limit, 3);
+    assert_eq!(depth_limit.limit, num(3));
 
     let Expr::With(with_expr) = depth_limit.body.as_ref() else {
         panic!("expected With expr");
@@ -437,7 +499,7 @@ rule = { depth_limit(3) { with inside { when depth > 0 { inner } } } }
         GuardCondition::Compare {
             name: "depth".to_string(),
             op: CompareOp::Gt,
-            value: 0,
+            value: num(0),
         }
     );
     assert_eq!(when_expr.body.as_ref(), &Expr::Ident("inner".to_string()));
@@ -459,8 +521,8 @@ fn parse_rejects_single_char_literal_without_range() {
 
 #[test]
 fn parse_rejects_malformed_repeat_bounds() {
-    let err = parser::parse(r#"rule = { "x"{1,foo} }"#).unwrap_err();
-    assert_eq!(err.offset, 12);
+    let err = parser::parse(r#"rule = { "x"{1,foo,} }"#).unwrap_err();
+    assert_eq!(err.offset, 18);
     assert!(err.message.contains("expected RBrace"));
 }
 
@@ -476,7 +538,7 @@ fn parse_invalid_syntax_fixtures() {
     let cases = [
         ("unexpected_character", 13, "unexpected character '$'"),
         ("unterminated_rule", 17, "expected RBrace"),
-        ("malformed_repeat", 12, "expected RBrace"),
+        ("malformed_repeat", 18, "expected RBrace"),
         ("bare_char_literal", 14, "expected DotDot"),
         ("builtin_rule_name", 0, "expected 'let' or rule name"),
         ("unsupported_state_kind", 10, "expected 'flag' or 'counter'"),

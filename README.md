@@ -14,8 +14,9 @@ already seen* while parsing.
   character ranges, and built-in boundaries (`SOI`, `EOI`, `ANY`, `LINE_START`,
   `LINE_END`)
 - **Stateful parsing** — first-class `flag` and `counter` declarations with
-  scoped mutation (`with`), conditional dispatch (`when`), rule-level guards,
-  and recursion depth limits
+  scoped mutation (`with`), committed measurement (`measure`), conditional
+  dispatch (`when` / `if ... else`), rule-level guards, and rollback-safe
+  recursion depth limits
 - **Compile-time codegen** — generates Rust code via derive macro or build
   script; no runtime interpretation overhead
 - **IR optimization pipeline** — rule inlining, literal fusion, `CharSet`
@@ -134,6 +135,8 @@ a?                   // optional
 a{3}                 // exactly 3
 a{2,5}               // 2 to 5
 a{2,}                // at least 2
+a{width}             // exactly counter `width`
+a{indent,limit}      // runtime counter range
 &a                   // positive lookahead (zero-width)
 !a                   // negative lookahead (zero-width)
 (a | b) c            // grouping
@@ -153,13 +156,19 @@ let counter my_counter  // unsigned integer, default 0
 ```faputa
 with my_flag { ... }           // set flag to true inside block, restore on exit
 with my_counter += 2 { ... }   // increment counter inside block, decrement on exit
+with my_counter += width { ... } // runtime counter amount
+measure width { ... }          // store consumed character count on success
 when my_flag { ... }           // run body only if flag is true, else succeed empty
 when !my_flag { ... }          // run body only if flag is false
 when my_counter > 0 { ... }    // run body only if counter satisfies condition
+if my_counter >= width { ... } else { ... } // true/false branch
 depth_limit(64) { ... }        // fail if recursion exceeds 64 levels
+depth_limit(limit) { ... }     // runtime counter limit
 ```
 
 Supported comparison operators in `when`: `==`, `!=`, `<`, `<=`, `>`, `>=`.
+Counter expressions are allowed on the right-hand side of comparisons and in
+repeat bounds.
 
 ### Rule-level statements
 
@@ -171,10 +180,14 @@ rule = {
     guard !my_flag         // fail immediately if flag is set
     guard my_counter > 0   // fail immediately if condition does not hold
     guard LINE_START        // fail immediately if not at start of line
-    emit my_counter        // increment counter by 1 (not scoped — permanent)
+    emit my_counter        // increment counter by 1 on the current parse path
     ...
 }
 ```
+
+State mutations participate in backtracking. If a branch fails and rewinds, its
+counter updates are rolled back too; scoped `with` mutations still restore on
+both success and failure.
 
 ### Error labels
 

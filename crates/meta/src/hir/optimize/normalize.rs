@@ -37,6 +37,11 @@ fn single_char_to_charset_expr(expr: HirExpr) -> HirExpr {
             min,
             max,
         },
+        HirExpr::RepeatDynamic { expr, min, max } => HirExpr::RepeatDynamic {
+            expr: Box::new(single_char_to_charset_expr(*expr)),
+            min,
+            max,
+        },
         HirExpr::PosLookahead(inner) => {
             HirExpr::PosLookahead(Box::new(single_char_to_charset_expr(*inner)))
         }
@@ -58,6 +63,19 @@ fn single_char_to_charset_expr(expr: HirExpr) -> HirExpr {
         },
         HirExpr::When { condition, body } => HirExpr::When {
             condition,
+            body: Box::new(single_char_to_charset_expr(*body)),
+        },
+        HirExpr::If {
+            condition,
+            then_body,
+            else_body,
+        } => HirExpr::If {
+            condition,
+            then_body: Box::new(single_char_to_charset_expr(*then_body)),
+            else_body: Box::new(single_char_to_charset_expr(*else_body)),
+        },
+        HirExpr::Measure { counter, body } => HirExpr::Measure {
+            counter,
             body: Box::new(single_char_to_charset_expr(*body)),
         },
         HirExpr::DepthLimit { limit, body } => HirExpr::DepthLimit {
@@ -120,6 +138,11 @@ fn flatten_expr(expr: HirExpr) -> HirExpr {
             min,
             max,
         },
+        HirExpr::RepeatDynamic { expr, min, max } => HirExpr::RepeatDynamic {
+            expr: Box::new(flatten_expr(*expr)),
+            min,
+            max,
+        },
         HirExpr::PosLookahead(inner) => HirExpr::PosLookahead(Box::new(flatten_expr(*inner))),
         HirExpr::NegLookahead(inner) => HirExpr::NegLookahead(Box::new(flatten_expr(*inner))),
         HirExpr::WithFlag { flag, body } => HirExpr::WithFlag {
@@ -137,6 +160,19 @@ fn flatten_expr(expr: HirExpr) -> HirExpr {
         },
         HirExpr::When { condition, body } => HirExpr::When {
             condition,
+            body: Box::new(flatten_expr(*body)),
+        },
+        HirExpr::If {
+            condition,
+            then_body,
+            else_body,
+        } => HirExpr::If {
+            condition,
+            then_body: Box::new(flatten_expr(*then_body)),
+            else_body: Box::new(flatten_expr(*else_body)),
+        },
+        HirExpr::Measure { counter, body } => HirExpr::Measure {
+            counter,
             body: Box::new(flatten_expr(*body)),
         },
         HirExpr::DepthLimit { limit, body } => HirExpr::DepthLimit {
@@ -199,6 +235,11 @@ fn merge_charsets_expr(expr: HirExpr) -> HirExpr {
             min,
             max,
         },
+        HirExpr::RepeatDynamic { expr, min, max } => HirExpr::RepeatDynamic {
+            expr: Box::new(merge_charsets_expr(*expr)),
+            min,
+            max,
+        },
         HirExpr::PosLookahead(inner) => {
             HirExpr::PosLookahead(Box::new(merge_charsets_expr(*inner)))
         }
@@ -220,6 +261,19 @@ fn merge_charsets_expr(expr: HirExpr) -> HirExpr {
         },
         HirExpr::When { condition, body } => HirExpr::When {
             condition,
+            body: Box::new(merge_charsets_expr(*body)),
+        },
+        HirExpr::If {
+            condition,
+            then_body,
+            else_body,
+        } => HirExpr::If {
+            condition,
+            then_body: Box::new(merge_charsets_expr(*then_body)),
+            else_body: Box::new(merge_charsets_expr(*else_body)),
+        },
+        HirExpr::Measure { counter, body } => HirExpr::Measure {
+            counter,
             body: Box::new(merge_charsets_expr(*body)),
         },
         HirExpr::DepthLimit { limit, body } => HirExpr::DepthLimit {
@@ -274,6 +328,11 @@ fn fuse_literals_expr(expr: HirExpr) -> HirExpr {
             min,
             max,
         },
+        HirExpr::RepeatDynamic { expr, min, max } => HirExpr::RepeatDynamic {
+            expr: Box::new(fuse_literals_expr(*expr)),
+            min,
+            max,
+        },
         HirExpr::PosLookahead(inner) => HirExpr::PosLookahead(Box::new(fuse_literals_expr(*inner))),
         HirExpr::NegLookahead(inner) => HirExpr::NegLookahead(Box::new(fuse_literals_expr(*inner))),
         HirExpr::WithFlag { flag, body } => HirExpr::WithFlag {
@@ -291,6 +350,19 @@ fn fuse_literals_expr(expr: HirExpr) -> HirExpr {
         },
         HirExpr::When { condition, body } => HirExpr::When {
             condition,
+            body: Box::new(fuse_literals_expr(*body)),
+        },
+        HirExpr::If {
+            condition,
+            then_body,
+            else_body,
+        } => HirExpr::If {
+            condition,
+            then_body: Box::new(fuse_literals_expr(*then_body)),
+            else_body: Box::new(fuse_literals_expr(*else_body)),
+        },
+        HirExpr::Measure { counter, body } => HirExpr::Measure {
+            counter,
             body: Box::new(fuse_literals_expr(*body)),
         },
         HirExpr::DepthLimit { limit, body } => HirExpr::DepthLimit {

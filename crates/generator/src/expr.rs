@@ -1,4 +1,4 @@
-use faputa_meta::ast::{BuiltinPredicate, CompareOp, GuardCondition};
+use faputa_meta::ast::{BuiltinPredicate, CompareOp, GuardCondition, NumericExpr};
 use faputa_meta::hir::{Boundary, CharRange};
 use faputa_meta::mir::{DispatchArm, MirExpr, MirProgram};
 use proc_macro2::TokenStream;
@@ -37,7 +37,7 @@ pub(crate) fn generate_expr(expr: &MirExpr, ir: &MirProgram) -> TokenStream {
                 if i > 0 {
                     interleaved.push(quote! {
                         (|input: &mut Input<'i, ParseState<'i>>| -> ModalResult<()> {
-                            input.state.track_pos(input.current_token_start());
+                            input.track_pos(input.current_token_start());
                             Ok(())
                         })
                     });
@@ -76,6 +76,8 @@ pub(crate) fn generate_expr(expr: &MirExpr, ir: &MirProgram) -> TokenStream {
 
         MirExpr::Repeat { expr, min, max } => generate_repeat(expr, *min, *max, ir),
 
+        MirExpr::RepeatDynamic { expr, min, max } => generate_dynamic_repeat(expr, min, max, ir),
+
         MirExpr::Loop { body, min } => generate_loop(body, *min, ir),
 
         MirExpr::Scan {
@@ -112,7 +114,7 @@ pub(crate) fn generate_expr(expr: &MirExpr, ir: &MirProgram) -> TokenStream {
             amount,
             body,
         } => {
-            let amount = *amount as usize;
+            let amount = generate_numeric_expr(amount);
             let body_code = generate_expr(body, ir);
             quote! {
                 (|input: &mut Input<'i, ParseState<'i>>| {
@@ -138,8 +140,44 @@ pub(crate) fn generate_expr(expr: &MirExpr, ir: &MirProgram) -> TokenStream {
             }
         }
 
+        MirExpr::If {
+            condition,
+            then_body,
+            else_body,
+        } => {
+            let condition_check = generate_condition_check(condition);
+            let then_code = generate_expr(then_body, ir);
+            let else_code = generate_expr(else_body, ir);
+            quote! {
+                (|input: &mut Input<'i, ParseState<'i>>| {
+                    if #condition_check {
+                        (#then_code).void().parse_next(input)
+                    } else {
+                        (#else_code).void().parse_next(input)
+                    }
+                })
+            }
+        }
+
+        MirExpr::Measure { counter, body } => {
+            let body_code = generate_expr(body, ir);
+            quote! {
+                (|input: &mut Input<'i, ParseState<'i>>| {
+                    let start = input.current_token_start();
+                    let result = (#body_code).void().parse_next(input);
+                    if result.is_ok() {
+                        let end = input.current_token_start();
+                        let matched = std::str::from_utf8(&input.state.original_input()[start..end])
+                            .expect("measure captured invalid utf-8 slice");
+                        input.state.set_counter(#counter, matched.chars().count());
+                    }
+                    result
+                })
+            }
+        }
+
         MirExpr::DepthLimit { limit, body } => {
-            let limit = *limit as usize;
+            let limit = generate_numeric_expr(limit);
             let body_code = generate_expr(body, ir);
             quote! {
                 (|input: &mut Input<'i, ParseState<'i>>| {
@@ -305,6 +343,66 @@ fn generate_repeat(expr: &MirExpr, min: u32, max: Option<u32>, ir: &MirProgram) 
         quote! { opt(#inner) }
     } else {
         quote! { repeat(#range, #inner)#fold }
+    }
+}
+
+fn generate_dynamic_repeat(
+    expr: &MirExpr,
+    min: &NumericExpr,
+    max: &Option<NumericExpr>,
+    ir: &MirProgram,
+) -> TokenStream {
+    let inner = generate_expr(expr, ir);
+    let min = generate_numeric_expr(min);
+    let max = match max {
+        Some(max) => {
+            let max = generate_numeric_expr(max);
+            quote! { Some(#max) }
+        }
+        None => quote! { None::<usize> },
+    };
+
+    quote! {
+        (|input: &mut Input<'i, ParseState<'i>>| -> ModalResult<()> {
+            let min = #min;
+            let max = #max;
+
+            if let Some(max) = max {
+                if max < min {
+                    return Err(winnow::error::ErrMode::Backtrack(
+                        winnow::error::ContextError::new(),
+                    ));
+                }
+            }
+
+            let mut count = 0usize;
+            while count < min {
+                (#inner).void().parse_next(input)?;
+                count += 1;
+            }
+
+            loop {
+                if max.is_some_and(|bound| count >= bound) {
+                    return Ok(());
+                }
+
+                let checkpoint = input.checkpoint();
+                let before = input.current_token_start();
+                match (#inner).void().parse_next(input) {
+                    Ok(()) => {
+                        count += 1;
+                        if input.current_token_start() == before {
+                            return Ok(());
+                        }
+                    }
+                    Err(winnow::error::ErrMode::Backtrack(_)) => {
+                        input.reset(&checkpoint);
+                        return Ok(());
+                    }
+                    Err(err) => return Err(err),
+                }
+            }
+        })
     }
 }
 
@@ -586,7 +684,7 @@ fn generate_condition_check(condition: &GuardCondition) -> TokenStream {
         }
         GuardCondition::Builtin(BuiltinPredicate::Any) => quote! { true },
         GuardCondition::Compare { name, op, value } => {
-            let value = *value as usize;
+            let value = generate_numeric_expr(value);
             let cmp = match op {
                 CompareOp::Eq => quote! { == },
                 CompareOp::Ne => quote! { != },
@@ -597,6 +695,16 @@ fn generate_condition_check(condition: &GuardCondition) -> TokenStream {
             };
             quote! { input.state.get_counter(#name) #cmp #value }
         }
+    }
+}
+
+fn generate_numeric_expr(expr: &NumericExpr) -> TokenStream {
+    match expr {
+        NumericExpr::Literal(value) => {
+            let value = *value as usize;
+            quote! { #value }
+        }
+        NumericExpr::Counter(name) => quote! { input.state.get_counter(#name) },
     }
 }
 

@@ -69,6 +69,11 @@ fn valid_chaos_combo() {
     validate_valid("chaos_combo");
 }
 
+#[test]
+fn valid_stateful_extensions() {
+    validate_valid("stateful_extensions");
+}
+
 // ── Invalid grammars should produce errors ──
 
 #[test]
@@ -234,4 +239,22 @@ entry = { depth_limit(3) { with inside { when depth > 0 { inner } } } }
     .unwrap();
 
     validator::validate(&grammar).unwrap();
+}
+
+#[test]
+fn invalid_numeric_expr_counter_refs_must_be_counters() {
+    let errors = validate_invalid_source(
+        r#"
+let flag enabled
+let counter depth
+entry = {
+    if depth >= enabled { "x" } else { "y" }
+}
+"#,
+    );
+
+    assert!(errors.iter().any(|e| matches!(
+        e,
+        ValidationError::ExpectedCounter { name, used_in } if name == "enabled" && used_in == "entry"
+    )));
 }

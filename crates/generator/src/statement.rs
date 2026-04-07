@@ -1,4 +1,4 @@
-use faputa_meta::ast::{BuiltinPredicate, CompareOp, GuardCondition};
+use faputa_meta::ast::{BuiltinPredicate, CompareOp, GuardCondition, NumericExpr};
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -38,7 +38,7 @@ fn generate_guard(condition: &GuardCondition) -> TokenStream {
         }
         GuardCondition::Builtin(builtin) => generate_builtin_guard(builtin),
         GuardCondition::Compare { name, op, value } => {
-            let value = *value as usize;
+            let value = generate_numeric_expr(value);
             let comparison = match op {
                 CompareOp::Eq => quote! { counter == #value },
                 CompareOp::Ne => quote! { counter != #value },
@@ -58,6 +58,16 @@ fn generate_guard(condition: &GuardCondition) -> TokenStream {
                 }
             }
         }
+    }
+}
+
+fn generate_numeric_expr(expr: &NumericExpr) -> TokenStream {
+    match expr {
+        NumericExpr::Literal(value) => {
+            let value = *value as usize;
+            quote! { #value }
+        }
+        NumericExpr::Counter(name) => quote! { input.state.get_counter(#name) },
     }
 }
 

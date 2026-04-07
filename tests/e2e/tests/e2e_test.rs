@@ -258,3 +258,46 @@ fn chaos_combo_document_parses_escaped_chunk() {
         "\\n\""
     );
 }
+
+// ── Fixture: stateful_extensions ──
+
+mod stateful_extensions {
+    include!(concat!(env!("OUT_DIR"), "/fixture_stateful_extensions.rs"));
+}
+
+#[test]
+fn stateful_extensions_choice_rolls_back_state() {
+    assert_eq!(
+        stateful_extensions::__faputa::parse_entry("ab").unwrap(),
+        "ab"
+    );
+}
+
+#[test]
+fn stateful_extensions_matches_measured_fence_width() {
+    assert_eq!(
+        stateful_extensions::__faputa::parse_fence("````x````").unwrap(),
+        "````x````"
+    );
+}
+
+#[test]
+fn stateful_extensions_rejects_mismatched_fence_width() {
+    stateful_extensions::__faputa::parse_fence("```x````").unwrap_err();
+}
+
+#[test]
+fn stateful_extensions_uses_dynamic_repeat_counter() {
+    assert_eq!(
+        stateful_extensions::__faputa::parse_exact_count("xxx").unwrap(),
+        "xxx"
+    );
+}
+
+#[test]
+fn stateful_extensions_if_else_selects_live_branch() {
+    assert_eq!(
+        stateful_extensions::__faputa::parse_branch("b").unwrap(),
+        "b"
+    );
+}

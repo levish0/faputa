@@ -104,12 +104,15 @@ fn estimate_cost(expr: &HirExpr) -> usize {
             1 + items.iter().map(estimate_cost).sum::<usize>()
         }
         HirExpr::Repeat { expr, .. }
+        | HirExpr::RepeatDynamic { expr, .. }
         | HirExpr::PosLookahead(expr)
         | HirExpr::NegLookahead(expr)
         | HirExpr::Labeled { expr, .. } => 1 + estimate_cost(expr),
         HirExpr::WithFlag { body: _, .. }
         | HirExpr::WithCounter { body: _, .. }
         | HirExpr::When { body: _, .. }
+        | HirExpr::If { .. }
+        | HirExpr::Measure { .. }
         | HirExpr::DepthLimit { body: _, .. } => usize::MAX / 4,
     }
 }
@@ -121,13 +124,20 @@ fn contains_rule_ref(expr: &HirExpr, needle: usize) -> bool {
             items.iter().any(|item| contains_rule_ref(item, needle))
         }
         HirExpr::Repeat { expr, .. }
+        | HirExpr::RepeatDynamic { expr, .. }
         | HirExpr::PosLookahead(expr)
         | HirExpr::NegLookahead(expr)
         | HirExpr::WithFlag { body: expr, .. }
         | HirExpr::WithCounter { body: expr, .. }
         | HirExpr::When { body: expr, .. }
+        | HirExpr::Measure { body: expr, .. }
         | HirExpr::DepthLimit { body: expr, .. }
         | HirExpr::Labeled { expr, .. } => contains_rule_ref(expr, needle),
+        HirExpr::If {
+            then_body,
+            else_body,
+            ..
+        } => contains_rule_ref(then_body, needle) || contains_rule_ref(else_body, needle),
         _ => false,
     }
 }
@@ -143,13 +153,23 @@ fn count_raw_refs(expr: &HirExpr, counts: &mut [usize]) {
             }
         }
         HirExpr::Repeat { expr, .. }
+        | HirExpr::RepeatDynamic { expr, .. }
         | HirExpr::PosLookahead(expr)
         | HirExpr::NegLookahead(expr)
         | HirExpr::WithFlag { body: expr, .. }
         | HirExpr::WithCounter { body: expr, .. }
         | HirExpr::When { body: expr, .. }
+        | HirExpr::Measure { body: expr, .. }
         | HirExpr::DepthLimit { body: expr, .. }
         | HirExpr::Labeled { expr, .. } => count_raw_refs(expr, counts),
+        HirExpr::If {
+            then_body,
+            else_body,
+            ..
+        } => {
+            count_raw_refs(then_body, counts);
+            count_raw_refs(else_body, counts);
+        }
         _ => {}
     }
 }
@@ -180,6 +200,11 @@ fn inline_refs(expr: HirExpr, inline_exprs: &[Option<HirExpr>]) -> HirExpr {
             min,
             max,
         },
+        HirExpr::RepeatDynamic { expr, min, max } => HirExpr::RepeatDynamic {
+            expr: Box::new(inline_refs(*expr, inline_exprs)),
+            min,
+            max,
+        },
         HirExpr::PosLookahead(inner) => {
             HirExpr::PosLookahead(Box::new(inline_refs(*inner, inline_exprs)))
         }
@@ -201,6 +226,19 @@ fn inline_refs(expr: HirExpr, inline_exprs: &[Option<HirExpr>]) -> HirExpr {
         },
         HirExpr::When { condition, body } => HirExpr::When {
             condition,
+            body: Box::new(inline_refs(*body, inline_exprs)),
+        },
+        HirExpr::If {
+            condition,
+            then_body,
+            else_body,
+        } => HirExpr::If {
+            condition,
+            then_body: Box::new(inline_refs(*then_body, inline_exprs)),
+            else_body: Box::new(inline_refs(*else_body, inline_exprs)),
+        },
+        HirExpr::Measure { counter, body } => HirExpr::Measure {
+            counter,
             body: Box::new(inline_refs(*body, inline_exprs)),
         },
         HirExpr::DepthLimit { limit, body } => HirExpr::DepthLimit {
@@ -230,14 +268,24 @@ fn collect_refs(expr: &HirExpr, refs: &mut HashSet<usize>) {
             }
         }
         HirExpr::Repeat { expr, .. }
+        | HirExpr::RepeatDynamic { expr, .. }
         | HirExpr::PosLookahead(expr)
         | HirExpr::NegLookahead(expr)
         | HirExpr::WithFlag { body: expr, .. }
         | HirExpr::WithCounter { body: expr, .. }
         | HirExpr::When { body: expr, .. }
+        | HirExpr::Measure { body: expr, .. }
         | HirExpr::DepthLimit { body: expr, .. }
         | HirExpr::Labeled { expr, .. } => {
             collect_refs(expr, refs);
+        }
+        HirExpr::If {
+            then_body,
+            else_body,
+            ..
+        } => {
+            collect_refs(then_body, refs);
+            collect_refs(else_body, refs);
         }
         _ => {}
     }
@@ -267,14 +315,24 @@ fn count_refs(expr: &HirExpr, counts: &mut [usize]) {
             }
         }
         HirExpr::Repeat { expr, .. }
+        | HirExpr::RepeatDynamic { expr, .. }
         | HirExpr::PosLookahead(expr)
         | HirExpr::NegLookahead(expr)
         | HirExpr::WithFlag { body: expr, .. }
         | HirExpr::WithCounter { body: expr, .. }
         | HirExpr::When { body: expr, .. }
+        | HirExpr::Measure { body: expr, .. }
         | HirExpr::DepthLimit { body: expr, .. }
         | HirExpr::Labeled { expr, .. } => {
             count_refs(expr, counts);
+        }
+        HirExpr::If {
+            then_body,
+            else_body,
+            ..
+        } => {
+            count_refs(then_body, counts);
+            count_refs(else_body, counts);
         }
         _ => {}
     }

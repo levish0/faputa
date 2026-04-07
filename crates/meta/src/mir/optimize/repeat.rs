@@ -51,6 +51,11 @@ fn recognize_loop_expr(expr: MirExpr, rules: &[MirRule]) -> MirExpr {
                 }
             }
         }
+        MirExpr::RepeatDynamic { expr, min, max } => MirExpr::RepeatDynamic {
+            expr: Box::new(recognize_loop_expr(*expr, rules)),
+            min,
+            max,
+        },
         MirExpr::Loop { body, min } => MirExpr::Loop {
             body: Box::new(recognize_loop_expr(*body, rules)),
             min,
@@ -76,6 +81,19 @@ fn recognize_loop_expr(expr: MirExpr, rules: &[MirRule]) -> MirExpr {
         },
         MirExpr::When { condition, body } => MirExpr::When {
             condition,
+            body: Box::new(recognize_loop_expr(*body, rules)),
+        },
+        MirExpr::If {
+            condition,
+            then_body,
+            else_body,
+        } => MirExpr::If {
+            condition,
+            then_body: Box::new(recognize_loop_expr(*then_body, rules)),
+            else_body: Box::new(recognize_loop_expr(*else_body, rules)),
+        },
+        MirExpr::Measure { counter, body } => MirExpr::Measure {
+            counter,
             body: Box::new(recognize_loop_expr(*body, rules)),
         },
         MirExpr::DepthLimit { limit, body } => MirExpr::DepthLimit {
@@ -156,6 +174,7 @@ fn min_consumption(expr: &MirExpr, rules: &[MirRule], visiting: &mut Vec<usize>)
             let inner = min_consumption(expr, rules, visiting)?;
             Some(inner.saturating_mul(*min))
         }
+        MirExpr::RepeatDynamic { .. } => Some(0),
         MirExpr::Loop { body, min } => {
             let inner = min_consumption(body, rules, visiting)?;
             Some(inner.saturating_mul(*min))
@@ -163,9 +182,19 @@ fn min_consumption(expr: &MirExpr, rules: &[MirRule], visiting: &mut Vec<usize>)
         MirExpr::PosLookahead(_) | MirExpr::NegLookahead(_) => Some(0),
         MirExpr::WithFlag { body, .. }
         | MirExpr::WithCounter { body, .. }
+        | MirExpr::Measure { body, .. }
         | MirExpr::DepthLimit { body, .. }
         | MirExpr::Labeled { expr: body, .. } => min_consumption(body, rules, visiting),
         MirExpr::When { .. } => Some(0),
+        MirExpr::If {
+            then_body,
+            else_body,
+            ..
+        } => {
+            let then_min = min_consumption(then_body, rules, visiting)?;
+            let else_min = min_consumption(else_body, rules, visiting)?;
+            Some(then_min.min(else_min))
+        }
         MirExpr::TakeWhile { min, .. } | MirExpr::Scan { min, .. } => Some(*min),
         MirExpr::SeparatedList { first, .. } => min_consumption(first, rules, visiting),
     }
