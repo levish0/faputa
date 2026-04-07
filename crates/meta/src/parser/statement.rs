@@ -1,4 +1,4 @@
-use crate::ast::{BuiltinPredicate, CompareOp, EmitStmt, GuardCondition, GuardStmt, Statement};
+use crate::ast::{BuiltinPredicate, CompareOp, GuardCondition, GuardStmt, IncStmt, Statement};
 use crate::lexer::Token;
 
 use super::error::ParseError;
@@ -13,8 +13,8 @@ pub(crate) fn parse_statements(tokens: &mut TokenStream<'_>) -> Result<Vec<State
             Some(Token::Guard) => {
                 statements.push(Statement::Guard(parse_guard(tokens)?));
             }
-            Some(Token::Emit) => {
-                statements.push(Statement::Emit(parse_emit(tokens)?));
+            Some(Token::Inc) => {
+                statements.push(Statement::Inc(parse_inc(tokens)?));
             }
             _ => break,
         }
@@ -83,8 +83,8 @@ fn parse_compare_op(tokens: &mut TokenStream<'_>) -> Result<CompareOp, ParseErro
     }
 }
 
-fn parse_emit(tokens: &mut TokenStream<'_>) -> Result<EmitStmt, ParseError> {
-    tokens.expect(&Token::Emit)?;
+fn parse_inc(tokens: &mut TokenStream<'_>) -> Result<IncStmt, ParseError> {
+    tokens.expect(&Token::Inc)?;
     let counter = tokens.expect_ident()?;
-    Ok(EmitStmt { counter })
+    Ok(IncStmt { counter })
 }

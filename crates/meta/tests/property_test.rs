@@ -116,7 +116,7 @@ fn statements_strategy() -> BoxedStrategy<Vec<String>> {
             Just("guard c0 > 0".to_string()),
             Just("guard SOI".to_string()),
             Just("guard LINE_START".to_string()),
-            Just("emit c0".to_string()),
+            Just("inc c0".to_string()),
         ],
         0..=3,
     )

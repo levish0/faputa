@@ -7,7 +7,7 @@ let counter limit
 entry = { probe | fallback }
 
 probe = {
-    emit seen
+    inc seen
     "a" "x"
 }
 
@@ -28,6 +28,6 @@ exact_count = {
 }
 
 branch = {
-    emit seen
+    inc seen
     if seen > 0 { "b" } else { "a" }
 }

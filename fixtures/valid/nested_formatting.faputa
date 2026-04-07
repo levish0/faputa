@@ -32,7 +32,7 @@ strikethrough = {
 header = {
     guard LINE_START
     guard !inside_header
-    emit section_counter
+    inc section_counter
     with inside_header {
         "#"{1,6} " " inline+
     }

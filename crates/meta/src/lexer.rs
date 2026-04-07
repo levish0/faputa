@@ -20,8 +20,8 @@ pub enum Token<'src> {
     Guard,
     #[token("with")]
     With,
-    #[token("emit")]
-    Emit,
+    #[token("inc")]
+    Inc,
     #[token("when")]
     When,
     #[token("if")]

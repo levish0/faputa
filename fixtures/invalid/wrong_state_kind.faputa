@@ -3,7 +3,7 @@ let flag inside_bold
 let counter section_counter
 
 bad_emit = {
-    emit inside_bold
+    inc inside_bold
     ANY
 }
 

@@ -112,17 +112,17 @@ fn guards_extracted_from_body() {
 }
 
 #[test]
-fn emits_extracted_from_body() {
+fn increments_extracted_from_body() {
     let ir = lower_source(
         r##"
         let counter section_counter
         header = {
-            emit section_counter
+            inc section_counter
             "#" "text"
         }
     "##,
     );
-    assert_eq!(ir.rules[0].emits, vec!["section_counter"]);
+    assert_eq!(ir.rules[0].increments, vec!["section_counter"]);
 }
 
 #[test]

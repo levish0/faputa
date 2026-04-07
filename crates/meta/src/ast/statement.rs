@@ -4,7 +4,7 @@ use super::NumericExpr;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Guard(GuardStmt),
-    Emit(EmitStmt),
+    Inc(IncStmt),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -48,6 +48,6 @@ pub enum BuiltinPredicate {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct EmitStmt {
+pub struct IncStmt {
     pub counter: String,
 }

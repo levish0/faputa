@@ -62,7 +62,7 @@ fn compile_reports_validation_errors() {
         r#"
 let flag inside
 entry = {
-    emit inside
+    inc inside
     missing_rule
 }
 "#,
@@ -94,7 +94,7 @@ let flag seen
 let flag seen
 
 entry = {
-    emit seen
+    inc seen
     with missing {
         when seen > 0 { missing_rule }
     }

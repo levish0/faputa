@@ -30,10 +30,10 @@ fn generate_rule(rule: &MirRule, ir: &MirProgram) -> TokenStream {
         "generating rule"
     );
 
-    let guard_code = generate_statements(&rule.guards, &rule.emits);
+    let guard_code = generate_statements(&rule.guards, &rule.increments);
     let expr_code = generate_expr(&rule.expr, ir);
 
-    let has_statements = !rule.guards.is_empty() || !rule.emits.is_empty();
+    let has_statements = !rule.guards.is_empty() || !rule.increments.is_empty();
 
     if rule.needs_trace {
         // Entry point: keep trace and surfaced rule label context.

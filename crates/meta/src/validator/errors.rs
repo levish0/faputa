@@ -15,7 +15,7 @@ pub enum ValidationError {
     /// `guard !x` or `with x { }` used on a counter (expected flag).
     ExpectedFlag { name: String, used_in: String },
 
-    /// `emit x` or `with x += n` used on a flag (expected counter).
+    /// `inc x` or `with x += n` used on a flag (expected counter).
     ExpectedCounter { name: String, used_in: String },
 
     /// A rule name shadows a built-in predicate.

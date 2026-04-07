@@ -212,9 +212,9 @@ fn lex_when_condition() {
 }
 
 #[test]
-fn lex_emit() {
-    let tokens = lex("emit section_counter");
-    assert_eq!(tokens, vec![Token::Emit, Token::Ident("section_counter")]);
+fn lex_inc() {
+    let tokens = lex("inc section_counter");
+    assert_eq!(tokens, vec![Token::Inc, Token::Ident("section_counter")]);
 }
 
 #[test]

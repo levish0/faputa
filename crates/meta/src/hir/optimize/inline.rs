@@ -79,7 +79,7 @@ pub(super) fn inline_small_single_use_rules(mut program: HirProgram) -> HirProgr
 }
 
 fn is_trivial(rule: &HirRule) -> bool {
-    if !rule.guards.is_empty() || !rule.emits.is_empty() {
+    if !rule.guards.is_empty() || !rule.increments.is_empty() {
         return false;
     }
     matches!(
@@ -89,7 +89,7 @@ fn is_trivial(rule: &HirRule) -> bool {
 }
 
 fn is_small_inline_candidate(rule: &HirRule) -> bool {
-    if !rule.guards.is_empty() || !rule.emits.is_empty() || rule.error_label.is_some() {
+    if !rule.guards.is_empty() || !rule.increments.is_empty() || rule.error_label.is_some() {
         return false;
     }
 

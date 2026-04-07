@@ -8,7 +8,7 @@ use crate::ast::{GuardCondition, NumericExpr};
 /// - `RuleRef(usize)` replaces `Ident(String)` (resolved)
 /// - Static repeats are normalized to `Repeat { min, max }`
 /// - Dynamic repeats preserve runtime counter bounds in `RepeatDynamic`
-/// - Stateful guards/emits are separate from the expression tree
+/// - Stateful guards/increments are separate from the expression tree
 #[derive(Debug, Clone, PartialEq)]
 pub enum HirExpr {
     // ── Terminals ──

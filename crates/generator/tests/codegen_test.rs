@@ -153,12 +153,12 @@ fn generates_with_increment_code() {
 }
 
 #[test]
-fn generates_emit_code() {
+fn generates_inc_code() {
     let code = generate_code(
         r##"
         let counter section_counter
         header = {
-            emit section_counter
+            inc section_counter
             "#" "text"
         }
     "##,

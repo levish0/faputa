@@ -45,7 +45,7 @@ pub fn lower(grammar: &Grammar) -> HirProgram {
                 tracing::trace!(
                     rule = %ir_rule.name,
                     guards = ir_rule.guards.len(),
-                    emits = ir_rule.emits.len(),
+                    increments = ir_rule.increments.len(),
                     has_error_label = ir_rule.error_label.is_some(),
                     "lowered rule"
                 );
@@ -60,12 +60,12 @@ pub fn lower(grammar: &Grammar) -> HirProgram {
 
 fn lower_rule(rule: &ast::RuleDef, indices: &HashMap<&str, usize>) -> HirRule {
     let mut guards = Vec::new();
-    let mut emits = Vec::new();
+    let mut increments = Vec::new();
 
     for stmt in &rule.body.statements {
         match stmt {
             Statement::Guard(g) => guards.push(g.condition.clone()),
-            Statement::Emit(e) => emits.push(e.counter.clone()),
+            Statement::Inc(e) => increments.push(e.counter.clone()),
         }
     }
 
@@ -76,7 +76,7 @@ fn lower_rule(rule: &ast::RuleDef, indices: &HashMap<&str, usize>) -> HirRule {
         inline: false,
         error_label: rule.error_label.clone(),
         guards,
-        emits,
+        increments,
         expr,
         ref_count: 0,
     }

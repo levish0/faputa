@@ -31,8 +31,8 @@ pub struct HirRule {
     pub error_label: Option<String>,
     /// Pre-expression guards (fail-fast before attempting the match).
     pub guards: Vec<GuardCondition>,
-    /// Pre-expression side effects (e.g., emit counter).
-    pub emits: Vec<String>,
+    /// Pre-expression counter increments (e.g., `inc counter`).
+    pub increments: Vec<String>,
     /// The matching expression.
     pub expr: HirExpr,
     /// Number of call sites referencing this rule (set by call-graph analysis).

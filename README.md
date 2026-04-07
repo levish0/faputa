@@ -180,7 +180,7 @@ rule = {
     guard !my_flag         // fail immediately if flag is set
     guard my_counter > 0   // fail immediately if condition does not hold
     guard LINE_START        // fail immediately if not at start of line
-    emit my_counter        // increment counter by 1 on the current parse path
+    inc my_counter         // increment counter by 1 on the current parse path
     ...
 }
 ```
@@ -254,7 +254,7 @@ let counter section_count
 
 header = {
     guard LINE_START
-    emit section_count
+    inc section_count
     "#"{1,6} " " text
 }
 ```

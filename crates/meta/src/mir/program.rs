@@ -27,6 +27,6 @@ pub struct MirRule {
     pub needs_context: bool,
     pub needs_trace: bool,
     pub guards: Vec<GuardCondition>,
-    pub emits: Vec<String>,
+    pub increments: Vec<String>,
     pub expr: MirExpr,
 }

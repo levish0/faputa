@@ -118,12 +118,12 @@ fn parse_nested_formatting() {
     // 5 state decls + 6 rules = 11 items
     assert_eq!(grammar.items.len(), 11);
 
-    // Check header has emit + guard LINE_START
+    // Check header has inc + guard LINE_START
     let Item::RuleDef(header) = &grammar.items[9] else {
         panic!("expected RuleDef for header");
     };
     assert_eq!(header.name, "header");
-    assert_eq!(header.body.statements.len(), 3); // guard LINE_START, guard !inside_header, emit
+    assert_eq!(header.body.statements.len(), 3); // guard LINE_START, guard !inside_header, inc
 
     assert_eq!(
         header.body.statements[0],
@@ -133,7 +133,7 @@ fn parse_nested_formatting() {
     );
     assert_eq!(
         header.body.statements[2],
-        Statement::Emit(EmitStmt {
+        Statement::Inc(IncStmt {
             counter: "section_counter".to_string(),
         })
     );

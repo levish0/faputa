@@ -27,7 +27,7 @@ fn check_statement(
 ) {
     match stmt {
         Statement::Guard(g) => check_guard_condition(&g.condition, rule_name, ctx, errors),
-        Statement::Emit(e) => {
+        Statement::Inc(e) => {
             check_state_is_counter(&e.counter, rule_name, ctx, errors);
         }
     }

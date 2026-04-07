@@ -188,7 +188,7 @@ let flag seen
 let flag seen
 
 entry = {
-    emit seen
+    inc seen
     with missing {
         when seen > 0 { missing_rule }
     }

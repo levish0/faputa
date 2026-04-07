@@ -2,10 +2,10 @@ use faputa_meta::ast::{BuiltinPredicate, CompareOp, GuardCondition, NumericExpr}
 use proc_macro2::TokenStream;
 use quote::quote;
 
-/// Generate code for guards and emits that precede a rule's expression.
-pub(crate) fn generate_statements(guards: &[GuardCondition], emits: &[String]) -> TokenStream {
+/// Generate code for guards and counter increments that precede a rule's expression.
+pub(crate) fn generate_statements(guards: &[GuardCondition], increments: &[String]) -> TokenStream {
     let guard_stmts: Vec<_> = guards.iter().map(generate_guard).collect();
-    let emit_stmts: Vec<_> = emits
+    let increment_stmts: Vec<_> = increments
         .iter()
         .map(|name| {
             quote! {
@@ -13,7 +13,7 @@ pub(crate) fn generate_statements(guards: &[GuardCondition], emits: &[String]) -
             }
         })
         .collect();
-    quote! { #(#guard_stmts)* #(#emit_stmts)* }
+    quote! { #(#guard_stmts)* #(#increment_stmts)* }
 }
 
 fn generate_guard(condition: &GuardCondition) -> TokenStream {
