@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-04-07
+
+### Added
+
+- **Runtime-valued numeric state expressions**
+  - Counter names can now be used anywhere the DSL previously only accepted numeric literals
+  - Repeat bounds, guard comparisons, `with counter += ...`, and `depth_limit(...)` now accept either a literal or a counter reference
+  - This enables grammars to reuse measured or accumulated parse-time values directly in later matches
+
+- **`measure counter { expr }`**
+  - A new stateful expression records how many characters `expr` consumed and stores that count in a counter
+  - This makes patterns like variable-width fences and indentation-sensitive follow-up matches expressible without ad hoc external logic
+
+- **`if ... else ...` branching**
+  - The DSL now has an explicit stateful branch form for condition-dependent parsing
+  - This complements the existing nullable `when` gate with a construct that always chooses exactly one branch
+
+- **A new stateful grammar fixture covering the extended feature set**
+  - `fixtures/valid/stateful_extensions.faputa` now exercises rollback-safe state, `measure`, runtime repeat bounds, and `if/else`
+
+### Changed
+
+- **State mutations now participate cleanly in backtracking**
+  - Parser checkpoints restore both input position and parser state when a branch rewinds
+  - Furthest-error tracking is now maintained separately so error locations remain accurate even when state is rolled back
+
+- **The counter increment statement has been renamed from `emit` to `inc`**
+  - The DSL now uses `inc counter_name` for rule-level counter increments
+  - Lexer, parser, documentation, fixtures, and tests were updated to match the new terminology
+  - Internal IR and codegen naming were aligned around “increments” rather than “emits”
+
+- **State examples and documentation now reflect the richer stateful core**
+  - README examples and fixture grammars now show `inc`, runtime numeric bounds, `measure`, and explicit branching
+
+### Fixed
+
+- **Backtracking no longer leaks speculative state changes**
+  - Counter and flag updates made on failing parse paths are now rolled back with the input stream instead of surviving across rewinds
+
+### Internal
+
+- Added parser, validator, codegen, runtime, and end-to-end regression coverage for runtime numeric expressions, `measure`, `if/else`, and rollback-safe state behavior
+- Refactored internal rule metadata and generator plumbing to carry rule-level counter increments explicitly
+
 ## [0.1.7] - 2026-04-06
 
 ### Added
